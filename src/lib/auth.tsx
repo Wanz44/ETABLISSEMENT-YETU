@@ -1,5 +1,12 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { onAuthStateChanged, User, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
+import { 
+  onAuthStateChanged, 
+  User, 
+  signOut, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword,
+  updateProfile
+} from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { UserProfile } from '../types';
@@ -8,7 +15,8 @@ interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
-  signIn: () => Promise<void>;
+  login: (email: string, pass: string) => Promise<void>;
+  register: (email: string, pass: string, name: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -50,32 +58,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  const [isSigningIn, setIsSigningIn] = useState(false);
+  const login = async (email: string, pass: string) => {
+    await signInWithEmailAndPassword(auth, email, pass);
+  };
 
-  const signIn = async () => {
-    if (isSigningIn) return;
+  const register = async (email: string, pass: string, name: string) => {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+    const user = userCredential.user;
     
-    setIsSigningIn(true);
-    try {
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
-    } catch (error: any) {
-      const silentErrorCodes = [
-        'auth/cancelled-popup-request',
-        'auth/popup-closed-by-user',
-        'auth/operation-not-allowed'
-      ];
-      
-      if (silentErrorCodes.includes(error.code)) {
-        console.log('Sign-in popup was closed, blocked or cancelled:', error.code);
-        return;
-      }
-      
-      console.error('Sign-in error:', error);
-      throw error;
-    } finally {
-      setIsSigningIn(false);
-    }
+    await updateProfile(user, { displayName: name });
+    
+    const docRef = doc(db, 'users', user.uid);
+    const isAdmin = email === 'adonailutonadio70@gmail.com';
+    const newProfile: UserProfile = {
+      uid: user.uid,
+      name: name,
+      email: email,
+      role: isAdmin ? 'admin' : 'manager',
+      createdAt: new Date().toISOString(),
+    };
+    await setDoc(docRef, newProfile);
+    setProfile(newProfile);
   };
 
   const logout = async () => {
@@ -83,7 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signIn, logout }}>
+    <AuthContext.Provider value={{ user, profile, loading, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );
