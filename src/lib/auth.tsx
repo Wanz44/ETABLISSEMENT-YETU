@@ -50,17 +50,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, []);
 
+  const [isSigningIn, setIsSigningIn] = useState(false);
+
   const signIn = async () => {
+    if (isSigningIn) return;
+    
+    setIsSigningIn(true);
     try {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
     } catch (error: any) {
-      if (error.code === 'auth/cancelled-popup-request' || error.code === 'auth/popup-closed-by-user') {
-        console.log('Sign-in popup was closed or cancelled.');
+      const silentErrorCodes = [
+        'auth/cancelled-popup-request',
+        'auth/popup-closed-by-user',
+        'auth/operation-not-allowed'
+      ];
+      
+      if (silentErrorCodes.includes(error.code)) {
+        console.log('Sign-in popup was closed, blocked or cancelled:', error.code);
         return;
       }
+      
       console.error('Sign-in error:', error);
       throw error;
+    } finally {
+      setIsSigningIn(false);
     }
   };
 

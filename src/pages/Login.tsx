@@ -16,7 +16,11 @@ export default function Login() {
     try {
       await signIn();
     } catch (error: any) {
-      toast.error("Erreur lors de la connexion. Veuillez réessayer.");
+      if (error.code === 'auth/popup-blocked') {
+        toast.error("Le popup de connexion a été bloqué par votre navigateur. Veuillez l'autoriser pour vous connecter.");
+      } else {
+        toast.error("Erreur lors de la connexion. Veuillez réessayer.");
+      }
     } finally {
       setIsLoggingIn(false);
     }
