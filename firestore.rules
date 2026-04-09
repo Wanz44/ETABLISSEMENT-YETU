@@ -1,0 +1,119 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Fields: uid, name, email, role (admin, manager, accountant), createdAt
+    //
+    // Collection: centers
+    // Fields: name, location, description, createdAt
+    //
+    // Collection: buildings
+    // Fields: centerId, name, description
+    //
+    // Collection: units
+    // Fields: buildingId, centerId, name, type (shop, office), status (occupied, free, maintenance), floor
+    //
+    // Collection: tenants
+    // Fields: name, company, manager, phone, email, activityType
+    //
+    // Collection: contracts
+    // Fields: tenantId, unitId, startDate, endDate, rentAmount, chargesIncluded, status (active, expired, terminated)
+    //
+    // Collection: invoices
+    // Fields: contractId, tenantId, unitId, month, year, amountRent, amountWater, amountElectricity, totalAmount, amountPaid, status (paid, unpaid, partial), dueDate
+    //
+    // Collection: payments
+    // Fields: invoiceId, tenantId, amount, date, method (cash, mobile_money, bank), reference
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' || 
+         (request.auth.token.email == "adonailutonadio70@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isManager() {
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'manager'];
+    }
+
+    function isAccountant() {
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'accountant'];
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasOnly(['uid', 'name', 'email', 'role', 'createdAt']) &&
+             data.uid is string && data.uid == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             isValidEmail(data.email) &&
+             data.role in ['admin', 'manager', 'accountant'];
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && 
+                      (request.resource.data.role != 'admin' || request.auth.token.email == "adonailutonadio70@gmail.com");
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && 
+                      request.resource.data.role == resource.data.role; // Cannot change own role
+      allow delete: if isAdmin();
+    }
+
+    match /centers/{centerId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /buildings/{buildingId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /units/{unitId} {
+      allow read: if isAuthenticated();
+      allow write: if isManager();
+    }
+
+    match /tenants/{tenantId} {
+      allow read: if isAuthenticated();
+      allow write: if isManager();
+    }
+
+    match /contracts/{contractId} {
+      allow read: if isAuthenticated();
+      allow write: if isManager();
+    }
+
+    match /invoices/{invoiceId} {
+      allow read: if isAuthenticated();
+      allow write: if isAccountant();
+    }
+
+    match /payments/{paymentId} {
+      allow read: if isAuthenticated();
+      allow write: if isAccountant();
+    }
+  }
+}
