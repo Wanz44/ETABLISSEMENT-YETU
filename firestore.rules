@@ -35,37 +35,31 @@ service cloud.firestore {
     // Helper Functions
     // ===============================================================
     function isAuthenticated() {
-      return request.auth != null;
+      return true; // Login system removed as requested
     }
 
     function isAdmin() {
-      return isAuthenticated() && 
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' || 
-         (request.auth.token.email == "adonailutonadio70@gmail.com" && request.auth.token.email_verified == true));
+      return true; // Default to admin for all actions
     }
 
     function isManager() {
-      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'manager'];
+      return true;
     }
 
     function isAccountant() {
-      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'accountant'];
+      return true;
     }
 
     function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+      return true;
     }
 
     function isValidEmail(email) {
-      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+      return email is string;
     }
 
     function isValidUser(data) {
-      return data.keys().hasOnly(['uid', 'name', 'email', 'role', 'createdAt']) &&
-             data.uid is string && data.uid == request.auth.uid &&
-             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
-             isValidEmail(data.email) &&
-             data.role in ['admin', 'manager', 'accountant'];
+      return true;
     }
 
     // ===============================================================
@@ -73,47 +67,35 @@ service cloud.firestore {
     // ===============================================================
 
     match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow create: if isOwner(userId) && isValidUser(request.resource.data) && 
-                      (request.resource.data.role != 'admin' || request.auth.token.email == "adonailutonadio70@gmail.com");
-      allow update: if isOwner(userId) && isValidUser(request.resource.data) && 
-                      request.resource.data.role == resource.data.role; // Cannot change own role
-      allow delete: if isAdmin();
+      allow read, write: if true;
     }
 
     match /centers/{centerId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow read, write: if true;
     }
 
     match /buildings/{buildingId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow read, write: if true;
     }
 
     match /units/{unitId} {
-      allow read: if isAuthenticated();
-      allow write: if isManager();
+      allow read, write: if true;
     }
 
     match /tenants/{tenantId} {
-      allow read: if isAuthenticated();
-      allow write: if isManager();
+      allow read, write: if true;
     }
 
     match /contracts/{contractId} {
-      allow read: if isAuthenticated();
-      allow write: if isManager();
+      allow read, write: if true;
     }
 
     match /invoices/{invoiceId} {
-      allow read: if isAuthenticated();
-      allow write: if isAccountant();
+      allow read, write: if true;
     }
 
     match /payments/{paymentId} {
-      allow read: if isAuthenticated();
-      allow write: if isAccountant();
+      allow read, write: if true;
     }
   }
 }

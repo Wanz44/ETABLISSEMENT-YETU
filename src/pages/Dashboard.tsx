@@ -1,6 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { collection, query, getDocs, where } from 'firebase/firestore';
-import { db } from '../firebase';
 import { 
   TrendingUp, 
   Users, 
@@ -8,7 +6,10 @@ import {
   AlertCircle,
   ArrowUpRight,
   ArrowDownRight,
-  Clock
+  Clock,
+  CreditCard,
+  FileText,
+  Receipt
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { 
@@ -21,8 +22,18 @@ import {
   ResponsiveContainer,
   Cell
 } from 'recharts';
+import { subscribeCollection } from '../lib/firestore';
+import { Invoice, Tenant, Unit, Payment } from '../types';
+import { cn } from '../lib/utils';
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
 
 export default function Dashboard() {
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [units, setUnits] = useState<Unit[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+
   const [stats, setStats] = useState({
     totalRevenue: 0,
     totalUnpaid: 0,
@@ -30,25 +41,43 @@ export default function Dashboard() {
     totalTenants: 0
   });
 
-  const [revenueData, setRevenueData] = useState([
+  useEffect(() => {
+    const unsubInvoices = subscribeCollection<Invoice>('invoices', setInvoices);
+    const unsubTenants = subscribeCollection<Tenant>('tenants', setTenants);
+    const unsubUnits = subscribeCollection<Unit>('units', setUnits);
+    const unsubPayments = subscribeCollection<Payment>('payments', setPayments);
+
+    return () => {
+      unsubInvoices();
+      unsubTenants();
+      unsubUnits();
+      unsubPayments();
+    };
+  }, []);
+
+  useEffect(() => {
+    const totalRevenue = payments.reduce((acc, p) => acc + p.amount, 0);
+    const totalUnpaid = invoices.reduce((acc, inv) => acc + (inv.totalAmount - inv.amountPaid), 0);
+    const totalTenants = tenants.length;
+    const occupiedUnits = units.filter(u => u.status === 'occupied').length;
+    const occupancyRate = units.length > 0 ? Math.round((occupiedUnits / units.length) * 100) : 0;
+
+    setStats({
+      totalRevenue,
+      totalUnpaid,
+      occupancyRate,
+      totalTenants
+    });
+  }, [invoices, tenants, units, payments]);
+
+  const revenueData = [
     { name: 'Jan', revenue: 4000 },
     { name: 'Feb', revenue: 3000 },
     { name: 'Mar', revenue: 2000 },
     { name: 'Apr', revenue: 2780 },
     { name: 'May', revenue: 1890 },
     { name: 'Jun', revenue: 2390 },
-  ]);
-
-  useEffect(() => {
-    // In a real app, fetch from Firestore
-    // For now, using mock data for visual polish
-    setStats({
-      totalRevenue: 125400,
-      totalUnpaid: 15200,
-      occupancyRate: 85,
-      totalTenants: 42
-    });
-  }, []);
+  ];
 
   const StatCard = ({ title, value, icon: Icon, trend, trendValue, color }: any) => (
     <Card>
@@ -86,7 +115,7 @@ export default function Dashboard() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard 
-          title="Revenus Mensuels" 
+          title="Revenus Totaux" 
           value={`${stats.totalRevenue.toLocaleString()} $`} 
           icon={TrendingUp}
           trend="up"
@@ -162,23 +191,26 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-8">
-              {[
-                { user: 'Jean Dupont', action: 'Paiement reçu', amount: '450 $', time: 'Il y a 2h', icon: CreditCard, color: 'text-emerald-500' },
-                { user: 'Marie Claire', action: 'Nouveau contrat', amount: 'Magasin B12', time: 'Il y a 5h', icon: FileText, color: 'text-blue-500' },
-                { user: 'Robert Smith', action: 'Facture générée', amount: '1,200 $', time: 'Hier', icon: Receipt, color: 'text-amber-500' },
-                { user: 'Boutique Mode', action: 'Retard de paiement', amount: '3 mois', time: 'Hier', icon: Clock, color: 'text-rose-500' },
-              ].map((item, i) => (
-                <div key={i} className="flex items-center">
-                  <div className={cn("p-2 rounded-lg bg-muted mr-4", item.color)}>
-                    <item.icon className="w-4 h-4" />
+              {payments.slice(0, 4).map((payment, i) => {
+                const tenant = tenants.find(t => t.id === payment.tenantId);
+                return (
+                  <div key={i} className="flex items-center">
+                    <div className={cn("p-2 rounded-lg bg-muted mr-4 text-emerald-500")}>
+                      <CreditCard className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 space-y-1">
+                      <p className="text-sm font-medium leading-none">{tenant?.name || 'Locataire'}</p>
+                      <p className="text-xs text-muted-foreground">Paiement reçu • {payment.amount} $</p>
+                    </div>
+                    <div className="text-xs text-muted-foreground">{format(new Date(payment.date), 'dd MMM', { locale: fr })}</div>
                   </div>
-                  <div className="flex-1 space-y-1">
-                    <p className="text-sm font-medium leading-none">{item.user}</p>
-                    <p className="text-xs text-muted-foreground">{item.action} • {item.amount}</p>
-                  </div>
-                  <div className="text-xs text-muted-foreground">{item.time}</div>
+                );
+              })}
+              {payments.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground text-sm">
+                  Aucune activité récente.
                 </div>
-              ))}
+              )}
             </div>
           </CardContent>
         </Card>
@@ -186,6 +218,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
-import { cn } from '../lib/utils';
-import { CreditCard, FileText, Receipt } from 'lucide-react';

@@ -53,6 +53,7 @@ export default function Contracts() {
     startDate: '',
     endDate: '',
     rentAmount: 0,
+    currency: 'USD' as const,
     chargesIncluded: false,
     status: 'active' as const
   });
@@ -165,15 +166,27 @@ export default function Contracts() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 items-end">
-                <div className="grid gap-2">
-                  <Label htmlFor="rent">Loyer Mensuel ($)</Label>
-                  <Input 
-                    id="rent" 
-                    type="number" 
-                    value={newContract.rentAmount}
-                    onChange={(e) => setNewContract({...newContract, rentAmount: parseFloat(e.target.value)})}
-                  />
+              <div className="grid grid-cols-3 gap-4 items-end">
+                <div className="grid gap-2 col-span-2">
+                  <Label htmlFor="rent">Loyer Mensuel</Label>
+                  <div className="flex gap-2">
+                    <Input 
+                      id="rent" 
+                      type="number" 
+                      className="flex-1"
+                      value={newContract.rentAmount}
+                      onChange={(e) => setNewContract({...newContract, rentAmount: parseFloat(e.target.value)})}
+                    />
+                    <Select value={newContract.currency} onValueChange={(val: any) => setNewContract({...newContract, currency: val})}>
+                      <SelectTrigger className="w-24">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="USD">USD</SelectItem>
+                        <SelectItem value="CDF">CDF</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div className="flex items-center space-x-2 pb-3">
                   <Checkbox 
@@ -182,7 +195,7 @@ export default function Contracts() {
                     onCheckedChange={(val) => setNewContract({...newContract, chargesIncluded: !!val})}
                   />
                   <Label htmlFor="charges" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                    Charges incluses (Eau/Elec)
+                    Charges incluses
                   </Label>
                 </div>
               </div>
@@ -236,7 +249,7 @@ export default function Contracts() {
                   <TableCell>
                     <div className="flex items-center gap-1 font-semibold">
                       <DollarSign className="w-4 h-4 text-emerald-500" />
-                      {contract.rentAmount.toLocaleString()}
+                      {contract.rentAmount.toLocaleString()} {contract.currency || 'USD'}
                       <span className="text-xs font-normal text-muted-foreground ml-1">/ mois</span>
                     </div>
                   </TableCell>

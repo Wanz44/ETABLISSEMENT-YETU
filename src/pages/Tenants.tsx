@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Users, Search, MoreVertical, Edit, Trash2, Phone, Mail, Briefcase } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, Users, Search, MoreVertical, Edit, Trash2, Phone, Mail, Briefcase, Eye } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { 
@@ -26,14 +27,18 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from '../components/ui/dropdown-menu';
-import { subscribeCollection, addDocument } from '../lib/firestore';
+import { subscribeCollection, addDocument, deleteDocument } from '../lib/firestore';
 import { Tenant } from '../types';
 import { toast } from 'sonner';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 
 export default function Tenants() {
+  const navigate = useNavigate();
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [tenantToDelete, setTenantToDelete] = useState<string | null>(null);
   const [newTenant, setNewTenant] = useState({ 
     name: '', 
     company: '', 
@@ -48,7 +53,10 @@ export default function Tenants() {
   }, []);
 
   const handleAddTenant = async () => {
-    if (!newTenant.name) return;
+    if (!newTenant.name) {
+      toast.error('Le nom du locataire est obligatoire');
+      return;
+    }
     try {
       await addDocument('tenants', newTenant);
       setNewTenant({ name: '', company: '', manager: '', phone: '', email: '', activityType: '' });
@@ -56,6 +64,17 @@ export default function Tenants() {
       toast.success('Locataire ajouté avec succès');
     } catch (e) {
       toast.error('Erreur lors de l\'ajout du locataire');
+    }
+  };
+
+  const handleDeleteTenant = async () => {
+    if (!tenantToDelete) return;
+    try {
+      await deleteDocument('tenants', tenantToDelete);
+      toast.success('Locataire supprimé avec succès');
+      setTenantToDelete(null);
+    } catch (e) {
+      toast.error('Erreur lors de la suppression');
     }
   };
 
@@ -195,10 +214,16 @@ export default function Tenants() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => navigate(`/tenants/${tenant.id}`)}>
+                        <Eye className="w-4 h-4 mr-2" /> Voir Détails
+                      </DropdownMenuItem>
                       <DropdownMenuItem>
                         <Edit className="w-4 h-4 mr-2" /> Modifier
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive">
+                      <DropdownMenuItem className="text-destructive" onClick={() => {
+                        setTenantToDelete(tenant.id);
+                        setIsConfirmOpen(true);
+                      }}>
                         <Trash2 className="w-4 h-4 mr-2" /> Supprimer
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -219,6 +244,14 @@ export default function Tenants() {
           </TableBody>
         </Table>
       </Card>
+
+      <ConfirmDialog 
+        open={isConfirmOpen}
+        onOpenChange={setIsConfirmOpen}
+        title="Supprimer le locataire"
+        description="Êtes-vous sûr de vouloir supprimer ce locataire ? Cette action est irréversible et supprimera toutes les données associées."
+        onConfirm={handleDeleteTenant}
+      />
     </div>
   );
 }

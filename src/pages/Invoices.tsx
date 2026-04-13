@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Receipt, Calendar, DollarSign, MoreVertical, Download, Send, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Plus, Receipt, Calendar, DollarSign, MoreVertical, Download, Send, AlertCircle, CheckCircle2, Eye } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { 
@@ -34,7 +34,7 @@ import {
   DropdownMenuTrigger 
 } from '../components/ui/dropdown-menu';
 import { Badge } from '../components/ui/badge';
-import { subscribeCollection, addDocument } from '../lib/firestore';
+import { subscribeCollection, addDocument, updateDocument } from '../lib/firestore';
 import { Invoice, Contract, Tenant, Unit } from '../types';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -47,6 +47,42 @@ export default function Invoices() {
   const [units, setUnits] = useState<Unit[]>([]);
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mobile_money' | 'bank'>('cash');
+  const [paymentRef, setPaymentRef] = useState('');
+
+  const handleQuickPayment = async () => {
+    if (!selectedInvoice || !paymentAmount) return;
+
+    try {
+      const paymentDate = new Date().toISOString();
+      await addDocument('payments', {
+        invoiceId: selectedInvoice.id,
+        tenantId: selectedInvoice.tenantId,
+        amount: paymentAmount,
+        date: paymentDate,
+        method: paymentMethod,
+        reference: paymentRef
+      });
+
+      const newAmountPaid = selectedInvoice.amountPaid + paymentAmount;
+      const newStatus = newAmountPaid >= selectedInvoice.totalAmount ? 'paid' : 'partial';
+      
+      await updateDocument('invoices', selectedInvoice.id, {
+        amountPaid: newAmountPaid,
+        status: newStatus
+      });
+
+      setIsPaymentOpen(false);
+      toast.success('Paiement enregistré avec succès');
+    } catch (e) {
+      toast.error('Erreur lors de l\'enregistrement du paiement');
+    }
+  };
+
   const [newInvoice, setNewInvoice] = useState({
     contractId: '',
     month: new Date().getMonth() + 1,
@@ -75,16 +111,22 @@ export default function Invoices() {
     if (!contract) return;
 
     const totalAmount = contract.rentAmount + newInvoice.amountWater + newInvoice.amountElectricity;
+    const invoiceNumber = `INV-${new Date().getFullYear()}${(new Date().getMonth() + 1).toString().padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const invoiceCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
     try {
       await addDocument('invoices', {
         ...newInvoice,
+        invoiceNumber,
+        invoiceCode,
         tenantId: contract.tenantId,
         unitId: contract.unitId,
         amountRent: contract.rentAmount,
         totalAmount,
         amountPaid: 0,
-        status: 'unpaid'
+        currency: contract.currency || 'USD',
+        status: 'unpaid',
+        createdAt: new Date().toISOString()
       });
       setIsDialogOpen(false);
       toast.success('Facture générée avec succès');
@@ -220,9 +262,12 @@ export default function Invoices() {
               return (
                 <TableRow key={invoice.id}>
                   <TableCell>
-                    <div className="flex items-center gap-2 font-medium">
-                      <Receipt className="w-4 h-4 text-muted-foreground" />
-                      INV-{invoice.year}{invoice.month.toString().padStart(2, '0')}-{invoice.id.slice(0, 4).toUpperCase()}
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-2 font-medium">
+                        <Receipt className="w-4 h-4 text-muted-foreground" />
+                        {invoice.invoiceNumber || `INV-${invoice.id.slice(0, 8).toUpperCase()}`}
+                      </div>
+                      <span className="text-[10px] text-muted-foreground font-mono ml-6">Code: {invoice.invoiceCode || 'N/A'}</span>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -239,10 +284,10 @@ export default function Invoices() {
                   </TableCell>
                   <TableCell>
                     <div className="font-semibold">
-                      {invoice.totalAmount.toLocaleString()} $
+                      {invoice.totalAmount.toLocaleString()} {invoice.currency || '$'}
                     </div>
                     {invoice.amountPaid > 0 && (
-                      <p className="text-[10px] text-emerald-600 font-medium">Payé: {invoice.amountPaid} $</p>
+                      <p className="text-[10px] text-emerald-600 font-medium">Payé: {invoice.amountPaid} {invoice.currency || '$'}</p>
                     )}
                   </TableCell>
                   <TableCell>
@@ -263,13 +308,23 @@ export default function Invoices() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => {
+                          setSelectedInvoice(invoice);
+                          setIsDetailsOpen(true);
+                        }}>
+                          <Eye className="w-4 h-4 mr-2" /> Voir Détails
+                        </DropdownMenuItem>
                         <DropdownMenuItem>
                           <Download className="w-4 h-4 mr-2" /> Télécharger PDF
                         </DropdownMenuItem>
                         <DropdownMenuItem>
                           <Send className="w-4 h-4 mr-2" /> Envoyer par Email
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-emerald-600">
+                        <DropdownMenuItem className="text-emerald-600" onClick={() => {
+                          setSelectedInvoice(invoice);
+                          setPaymentAmount(invoice.totalAmount - invoice.amountPaid);
+                          setIsPaymentOpen(true);
+                        }}>
                           <DollarSign className="w-4 h-4 mr-2" /> Enregistrer Paiement
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -291,6 +346,112 @@ export default function Invoices() {
           </TableBody>
         </Table>
       </Card>
+
+      {/* Invoice Details Dialog */}
+      <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Détails de la Facture</DialogTitle>
+          </DialogHeader>
+          {selectedInvoice && (
+            <div className="space-y-6 py-4">
+              <div className="flex justify-between items-center border-b pb-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">N° Facture</p>
+                  <p className="font-bold">{selectedInvoice.invoiceNumber || 'N/A'}</p>
+                  <p className="text-[10px] text-muted-foreground font-mono">Code: {selectedInvoice.invoiceCode || 'N/A'}</p>
+                </div>
+                <Badge variant={
+                  selectedInvoice.status === 'paid' ? 'default' : 
+                  selectedInvoice.status === 'partial' ? 'secondary' : 'destructive'
+                }>
+                  {selectedInvoice.status === 'paid' ? 'Payée' : 
+                   selectedInvoice.status === 'partial' ? 'Partielle' : 'Impayée'}
+                </Badge>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Loyer Mensuel</span>
+                  <span className="font-medium">{selectedInvoice.amountRent.toLocaleString()} {selectedInvoice.currency}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Consommation Eau</span>
+                  <span className="font-medium">{selectedInvoice.amountWater.toLocaleString()} {selectedInvoice.currency}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Consommation Électricité</span>
+                  <span className="font-medium">{selectedInvoice.amountElectricity.toLocaleString()} {selectedInvoice.currency}</span>
+                </div>
+                <div className="pt-3 border-t flex justify-between items-center">
+                  <span className="font-bold">TOTAL À PAYER</span>
+                  <span className="text-xl font-bold text-primary">{selectedInvoice.totalAmount.toLocaleString()} {selectedInvoice.currency}</span>
+                </div>
+              </div>
+
+              <div className="bg-muted/50 p-4 rounded-lg space-y-2">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Déjà payé</span>
+                  <span className="font-semibold text-emerald-600">{selectedInvoice.amountPaid.toLocaleString()} {selectedInvoice.currency}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Reste à payer</span>
+                  <span className="font-semibold text-destructive">{(selectedInvoice.totalAmount - selectedInvoice.amountPaid).toLocaleString()} {selectedInvoice.currency}</span>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDetailsOpen(false)}>Fermer</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quick Payment Dialog */}
+      <Dialog open={isPaymentOpen} onOpenChange={setIsPaymentOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Enregistrer un Paiement</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="qAmount">Montant ($)</Label>
+              <Input 
+                id="qAmount" 
+                type="number" 
+                value={paymentAmount}
+                onChange={(e) => setPaymentAmount(parseFloat(e.target.value))}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>Méthode</Label>
+              <Select defaultValue="cash" onValueChange={(val: any) => setPaymentMethod(val)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">Espèces (Cash)</SelectItem>
+                  <SelectItem value="mobile_money">Mobile Money</SelectItem>
+                  <SelectItem value="bank">Virement Bancaire</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="qRef">Référence</Label>
+              <Input 
+                id="qRef" 
+                value={paymentRef}
+                onChange={(e) => setPaymentRef(e.target.value)}
+                placeholder="N° Reçu, Ref..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPaymentOpen(false)}>Annuler</Button>
+            <Button onClick={handleQuickPayment}>Confirmer</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -31,6 +31,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { subscribeCollection, addDocument, updateDocument, deleteDocument } from '../lib/firestore';
 import { Center, Building, Unit } from '../types';
 import { toast } from 'sonner';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 
 export default function Centers() {
   const [centers, setCenters] = useState<Center[]>([]);
@@ -38,6 +39,8 @@ export default function Centers() {
   const [units, setUnits] = useState<Unit[]>([]);
   
   const [isCenterDialogOpen, setIsCenterDialogOpen] = useState(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<{id: string, type: 'centers' | 'buildings' | 'units'} | null>(null);
   const [newCenter, setNewCenter] = useState({ name: '', location: '', description: '' });
 
   useEffect(() => {
@@ -53,7 +56,10 @@ export default function Centers() {
   }, []);
 
   const handleAddCenter = async () => {
-    if (!newCenter.name) return;
+    if (!newCenter.name) {
+      toast.error('Le nom du centre est obligatoire');
+      return;
+    }
     try {
       await addDocument('centers', { ...newCenter, createdAt: new Date().toISOString() });
       setNewCenter({ name: '', location: '', description: '' });
@@ -61,6 +67,17 @@ export default function Centers() {
       toast.success('Centre commercial ajouté avec succès');
     } catch (e) {
       toast.error('Erreur lors de l\'ajout du centre');
+    }
+  };
+
+  const handleDeleteItem = async () => {
+    if (!itemToDelete) return;
+    try {
+      await deleteDocument(itemToDelete.type, itemToDelete.id);
+      toast.success('Élément supprimé avec succès');
+      setItemToDelete(null);
+    } catch (e) {
+      toast.error('Erreur lors de la suppression');
     }
   };
 
@@ -144,7 +161,10 @@ export default function Centers() {
                         <DropdownMenuItem>
                           <Edit className="w-4 h-4 mr-2" /> Modifier
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive">
+                        <DropdownMenuItem className="text-destructive" onClick={() => {
+                          setItemToDelete({ id: center.id, type: 'centers' });
+                          setIsConfirmOpen(true);
+                        }}>
                           <Trash2 className="w-4 h-4 mr-2" /> Supprimer
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -197,9 +217,17 @@ export default function Centers() {
                     <TableCell className="text-muted-foreground">{building.description}</TableCell>
                     <TableCell>{units.filter(u => u.buildingId === building.id).length}</TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="icon">
-                        <Edit className="w-4 h-4" />
-                      </Button>
+                      <div className="flex justify-end gap-2">
+                        <Button variant="ghost" size="icon">
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => {
+                          setItemToDelete({ id: building.id, type: 'buildings' });
+                          setIsConfirmOpen(true);
+                        }}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -250,9 +278,17 @@ export default function Centers() {
                     </TableCell>
                     <TableCell>{unit.floor}</TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="icon">
-                        <Edit className="w-4 h-4" />
-                      </Button>
+                      <div className="flex justify-end gap-2">
+                        <Button variant="ghost" size="icon">
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => {
+                          setItemToDelete({ id: unit.id, type: 'units' });
+                          setIsConfirmOpen(true);
+                        }}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -268,6 +304,14 @@ export default function Centers() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <ConfirmDialog 
+        open={isConfirmOpen}
+        onOpenChange={setIsConfirmOpen}
+        title="Confirmer la suppression"
+        description="Êtes-vous sûr de vouloir supprimer cet élément ? Cette action supprimera également toutes les données liées."
+        onConfirm={handleDeleteItem}
+      />
     </div>
   );
 }

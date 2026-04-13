@@ -62,6 +62,20 @@ export async function updateDocument<T extends DocumentData>(path: string, id: s
   }
 }
 
+export async function getDocument<T>(path: string, id: string): Promise<T | null> {
+  try {
+    const docRef = doc(db, path, id);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      return { id: docSnap.id, ...docSnap.data() } as T;
+    }
+    return null;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.GET, `${path}/${id}`);
+    return null;
+  }
+}
+
 export async function deleteDocument(path: string, id: string) {
   try {
     const docRef = doc(db, path, id);

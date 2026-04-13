@@ -1,4 +1,5 @@
 export type UserRole = 'admin' | 'manager' | 'accountant';
+export type Currency = 'USD' | 'CDF';
 
 export interface UserProfile {
   uid: string;
@@ -6,6 +7,7 @@ export interface UserProfile {
   email: string;
   role: UserRole;
   createdAt: string;
+  preferredCurrency?: Currency;
 }
 
 export interface Center {
@@ -50,12 +52,15 @@ export interface Contract {
   startDate: string;
   endDate: string;
   rentAmount: number;
+  currency: Currency;
   chargesIncluded: boolean;
   status: 'active' | 'expired' | 'terminated';
 }
 
 export interface Invoice {
   id: string;
+  invoiceNumber: string;
+  invoiceCode: string;
   contractId: string;
   tenantId: string;
   unitId: string;
@@ -66,8 +71,10 @@ export interface Invoice {
   amountElectricity: number;
   totalAmount: number;
   amountPaid: number;
+  currency: Currency;
   status: 'paid' | 'unpaid' | 'partial';
   dueDate: string;
+  createdAt: string;
 }
 
 export interface Payment {
@@ -75,6 +82,7 @@ export interface Payment {
   invoiceId: string;
   tenantId: string;
   amount: number;
+  currency: Currency;
   date: string;
   method: 'cash' | 'mobile_money' | 'bank';
   reference: string;

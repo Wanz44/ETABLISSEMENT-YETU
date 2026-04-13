@@ -42,6 +42,7 @@ export default function Payments() {
   const [newPayment, setNewPayment] = useState({
     invoiceId: '',
     amount: 0,
+    currency: 'USD' as const,
     method: 'cash' as const,
     reference: ''
   });
@@ -95,6 +96,19 @@ export default function Payments() {
     }
   };
 
+  const getStats = () => {
+    const usdTotal = payments
+      .filter(p => (p.currency || 'USD') === 'USD')
+      .reduce((acc, curr) => acc + curr.amount, 0);
+    const cdfTotal = payments
+      .filter(p => p.currency === 'CDF')
+      .reduce((acc, curr) => acc + curr.amount, 0);
+    
+    return { usdTotal, cdfTotal };
+  };
+
+  const stats = getStats();
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -117,7 +131,15 @@ export default function Payments() {
             <div className="grid gap-6 py-4">
               <div className="grid gap-2">
                 <Label>Facture Impayée</Label>
-                <Select onValueChange={(val) => setNewPayment({...newPayment, invoiceId: val})}>
+                <Select onValueChange={(val) => {
+                  const inv = invoices.find(i => i.id === val);
+                  setNewPayment({
+                    ...newPayment, 
+                    invoiceId: val,
+                    currency: (inv?.currency as any) || 'USD',
+                    amount: (inv?.totalAmount || 0) - (inv?.amountPaid || 0)
+                  });
+                }}>
                   <SelectTrigger>
                     <SelectValue placeholder="Sélectionner une facture" />
                   </SelectTrigger>
@@ -127,7 +149,7 @@ export default function Payments() {
                       const remaining = i.totalAmount - i.amountPaid;
                       return (
                         <SelectItem key={i.id} value={i.id}>
-                          {t?.name} - {remaining} $ restant
+                          {t?.name} - {remaining} {i.currency} restant
                         </SelectItem>
                       );
                     })}
@@ -137,13 +159,25 @@ export default function Payments() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="amount">Montant ($)</Label>
-                  <Input 
-                    id="amount" 
-                    type="number" 
-                    value={newPayment.amount}
-                    onChange={(e) => setNewPayment({...newPayment, amount: parseFloat(e.target.value)})}
-                  />
+                  <Label htmlFor="amount">Montant</Label>
+                  <div className="flex gap-2">
+                    <Input 
+                      id="amount" 
+                      type="number" 
+                      className="flex-1"
+                      value={newPayment.amount}
+                      onChange={(e) => setNewPayment({...newPayment, amount: parseFloat(e.target.value)})}
+                    />
+                    <Select value={newPayment.currency} onValueChange={(val: any) => setNewPayment({...newPayment, currency: val})}>
+                      <SelectTrigger className="w-24">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="USD">USD</SelectItem>
+                        <SelectItem value="CDF">CDF</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div className="grid gap-2">
                   <Label>Méthode</Label>
@@ -180,11 +214,21 @@ export default function Payments() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Encaissé</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Encaissé (USD)</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {payments.reduce((acc, curr) => acc + curr.amount, 0).toLocaleString()} $
+              {stats.usdTotal.toLocaleString()} USD
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Encaissé (CDF)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {stats.cdfTotal.toLocaleString()} CDF
             </div>
           </CardContent>
         </Card>
@@ -195,16 +239,6 @@ export default function Payments() {
           <CardContent>
             <div className="text-2xl font-bold">
               {payments.filter(p => new Date(p.date).getMonth() === new Date().getMonth()).length}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Dernière transaction</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-sm font-medium">
-              {payments.length > 0 ? format(new Date(payments[0].date), 'dd MMMM yyyy', { locale: fr }) : 'N/A'}
             </div>
           </CardContent>
         </Card>
@@ -244,7 +278,7 @@ export default function Payments() {
                     {payment.reference || '-'}
                   </TableCell>
                   <TableCell className="font-semibold text-emerald-600">
-                    + {payment.amount.toLocaleString()} $
+                    + {payment.amount.toLocaleString()} {payment.currency || 'USD'}
                   </TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="icon">
