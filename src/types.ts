@@ -87,3 +87,13 @@ export interface Payment {
   method: 'cash' | 'mobile_money' | 'bank';
   reference: string;
 }
+
+export interface Expense {
+  id: string;
+  description: string;
+  amount: number;
+  currency: Currency;
+  category: string;
+  date: string;
+  centerId?: string;
+}

@@ -105,12 +105,12 @@ export default function Contracts() {
         </div>
         
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
+          <DialogTrigger render={
             <Button>
               <Plus className="w-4 h-4 mr-2" />
               Nouveau Contrat
             </Button>
-          </DialogTrigger>
+          } />
           <DialogContent className="sm:max-w-[600px]">
             <DialogHeader>
               <DialogTitle>Créer un Nouveau Contrat</DialogTitle>
@@ -261,11 +261,11 @@ export default function Contracts() {
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
+                      <DropdownMenuTrigger render={
                         <Button variant="ghost" size="icon">
                           <MoreVertical className="w-4 h-4" />
                         </Button>
-                      </DropdownMenuTrigger>
+                      } />
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem>
                           <Edit className="w-4 h-4 mr-2" /> Modifier

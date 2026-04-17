@@ -6,6 +6,7 @@ import './index.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
+    {/* @ts-ignore - ThemeProvider types might not match React 19 exactly */}
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <App />
     </ThemeProvider>

@@ -9,6 +9,9 @@ import TenantDetails from './pages/TenantDetails';
 import Contracts from './pages/Contracts';
 import Invoices from './pages/Invoices';
 import Payments from './pages/Payments';
+import Expenses from './pages/Expenses';
+import Reports from './pages/Reports';
+import LocalDatabase from './pages/LocalDatabase';
 import { Toaster } from './components/ui/sonner';
 
 export default function App() {
@@ -24,6 +27,9 @@ export default function App() {
             <Route path="/contracts" element={<Contracts />} />
             <Route path="/invoices" element={<Invoices />} />
             <Route path="/payments" element={<Payments />} />
+            <Route path="/expenses" element={<Expenses />} />
+            <Route path="/reports" element={<Reports />} />
+            <Route path="/database" element={<LocalDatabase />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </Layout>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
+import { useAppStore } from '../store/useAppStore';
 import { 
   LayoutDashboard, 
   Building2, 
@@ -14,7 +15,9 @@ import {
   ChevronRight,
   Sun,
   Moon,
-  Settings
+  TrendingDown,
+  BarChart3,
+  ShieldCheck
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Sheet, SheetContent, SheetTrigger } from './ui/sheet';
@@ -30,7 +33,7 @@ interface NavItemProps {
   collapsed?: boolean;
 }
 
-function NavItem({ to, icon: Icon, label, active, collapsed }: NavItemProps) {
+const NavItem: React.FC<NavItemProps> = ({ to, icon: Icon, label, active, collapsed }) => {
   return (
     <Link
       to={to}
@@ -65,7 +68,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  const { isSidebarCollapsed: collapsed, setSidebarCollapsed: setCollapsed } = useAppStore();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => setMounted(true), []);
@@ -77,6 +80,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { to: '/contracts', icon: FileText, label: 'Contrats' },
     { to: '/invoices', icon: Receipt, label: 'Facturation' },
     { to: '/payments', icon: CreditCard, label: 'Paiements' },
+    { to: '/expenses', icon: TrendingDown, label: 'Dépenses' },
+    { to: '/reports', icon: BarChart3, label: 'Rapports' },
+    { to: '/database', icon: ShieldCheck, label: 'Stockage Local' },
   ];
 
   const SidebarContent = ({ isMobile = false }: { isMobile?: boolean }) => (
@@ -160,11 +166,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       {/* Mobile Nav Trigger */}
       <div className="lg:hidden fixed bottom-6 right-6 z-50">
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-          <SheetTrigger asChild>
+          <SheetTrigger render={
             <Button size="icon" className="w-14 h-14 rounded-full shadow-2xl shadow-primary/40">
               <Menu className="w-6 h-6" />
             </Button>
-          </SheetTrigger>
+          } />
           <SheetContent side="left" className="p-0 w-72 rounded-r-3xl border-none">
             <SidebarContent isMobile />
           </SheetContent>

@@ -90,12 +90,12 @@ export default function Centers() {
         </div>
         
         <Dialog open={isCenterDialogOpen} onOpenChange={setIsCenterDialogOpen}>
-          <DialogTrigger asChild>
+          <DialogTrigger render={
             <Button>
               <Plus className="w-4 h-4 mr-2" />
               Nouveau Centre
             </Button>
-          </DialogTrigger>
+          } />
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Ajouter un Centre Commercial</DialogTitle>
@@ -152,11 +152,11 @@ export default function Centers() {
                       <Building2 className="w-5 h-5 text-primary" />
                     </div>
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
+                      <DropdownMenuTrigger render={
                         <Button variant="ghost" size="icon" className="h-8 w-8">
                           <MoreVertical className="w-4 h-4" />
                         </Button>
-                      </DropdownMenuTrigger>
+                      } />
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem>
                           <Edit className="w-4 h-4 mr-2" /> Modifier
