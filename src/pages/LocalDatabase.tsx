@@ -6,7 +6,6 @@ import {
   Download, 
   Upload, 
   Trash2, 
-  RefreshCw, 
   CheckCircle2, 
   AlertCircle,
   FileJson,
@@ -18,13 +17,11 @@ import { LocalStorageService } from '@/services/localStorageService';
 import { saveAs } from 'file-saver';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
-import { getCollection } from '@/lib/firestore';
 import { useAppStore } from '@/store/useAppStore';
 
 const LocalDatabase = () => {
   const [stats, setStats] = useState<Record<string, number>>({});
-  const [isSyncing, setIsSyncing] = useState(false);
-  const { lastSync, setLastSync } = useAppStore();
+  const { lastSync } = useAppStore();
 
   useEffect(() => {
     loadStats();
@@ -79,30 +76,6 @@ const LocalDatabase = () => {
     }
   };
 
-  const handleSyncFromCloud = async () => {
-    setIsSyncing(true);
-    try {
-      const collections = ['centers', 'buildings', 'units', 'tenants', 'contracts', 'invoices', 'payments', 'expenses'];
-      
-      for (const col of collections) {
-        const data = await getCollection(col);
-        await (dbLocal as any)[col].clear();
-        if (data.length > 0) {
-          await (dbLocal as any)[col].bulkAdd(data);
-        }
-      }
-      
-      setLastSync(Date.now());
-      await loadStats();
-      toast.success('Données synchronisées depuis le cloud');
-    } catch (error) {
-      console.error(error);
-      toast.error('Échec de la synchronisation');
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
   const totalEntries = Object.values(stats).reduce((a: number, b: number) => a + b, 0);
 
   return (
@@ -114,18 +87,8 @@ const LocalDatabase = () => {
             Stockage Local Pro
           </h1>
           <p className="text-muted-foreground mt-1">
-            Gérez vos données localement avec une performance maximale et une sécurité accrue.
+            Gérez vos données localement avec une performance maximale et une sécurité accrue (Mode Local-Only).
           </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button 
-            onClick={handleSyncFromCloud} 
-            disabled={isSyncing}
-            className="rounded-xl shadow-lg shadow-primary/20"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
-            Sync depuis Cloud
-          </Button>
         </div>
       </div>
 
