@@ -41,7 +41,9 @@ import { Invoice, Contract, Tenant, Unit } from '../types';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Printer } from 'lucide-react';
+import { Printer, FileSpreadsheet, Zap } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 
 export default function Invoices() {
   const data = useLiveQuery(async () => {
@@ -56,6 +58,7 @@ export default function Invoices() {
 
   const { invoices, contracts, tenants, units, centers } = data;
   
+  const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'partial' | 'unpaid'>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -65,6 +68,110 @@ export default function Invoices() {
   const [paymentRef, setPaymentRef] = useState('');
 
   const [invoiceToPrint, setInvoiceToPrint] = useState<Invoice | null>(null);
+
+  const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
+  const [bulkConfig, setBulkConfig] = useState({
+    month: new Date().getMonth() + 1,
+    year: new Date().getFullYear(),
+    dueDate: format(new Date(), 'yyyy-MM-dd')
+  });
+
+  const months = [
+    'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+    'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
+  ];
+
+  const exportToExcel = () => {
+    const dataToExport = invoices.map(inv => {
+      const tenant = tenants.find(t => t.id === inv.tenantId);
+      const unit = units.find(u => u.id === inv.unitId);
+      return {
+        'N° Facture': inv.invoiceNumber,
+        'Code': inv.invoiceCode,
+        'Locataire': tenant?.name,
+        'Unité': unit?.name,
+        'Période': `${months[inv.month - 1]} ${inv.year}`,
+        'Loyer': inv.amountRent,
+        'Eau': inv.amountWater,
+        'Élec': inv.amountElectricity,
+        'Total': inv.totalAmount,
+        'Payé': inv.amountPaid,
+        'Statut': inv.status.toUpperCase(),
+        'Devise': inv.currency
+      };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Factures');
+    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    const dataBlob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
+    saveAs(dataBlob, `Factures_Yetu_${format(new Date(), 'dd_MM_yyyy')}.xlsx`);
+    toast.success('Export Excel terminé');
+  };
+
+  const handleBulkGenerate = async () => {
+    try {
+      const activeContracts = contracts.filter(c => c.status === 'active');
+      let generatedCount = 0;
+      let skippedCount = 0;
+
+      for (const contract of activeContracts) {
+        const existing = await dbLocal.invoices
+          .where({ 
+            contractId: contract.id, 
+            month: bulkConfig.month, 
+            year: bulkConfig.year 
+          })
+          .first();
+
+        if (existing) {
+          skippedCount++;
+          continue;
+        }
+
+        const totalAmount = contract.rentAmount;
+        const invoiceNumber = `INV-${bulkConfig.year}${bulkConfig.month.toString().padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
+        const invoiceCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+        await DataService.add('invoices', {
+          contractId: contract.id,
+          month: bulkConfig.month,
+          year: bulkConfig.year,
+          amountWater: 0,
+          amountElectricity: 0,
+          dueDate: bulkConfig.dueDate,
+          invoiceNumber,
+          invoiceCode,
+          tenantId: contract.tenantId,
+          unitId: contract.unitId,
+          amountRent: contract.rentAmount,
+          totalAmount,
+          amountPaid: 0,
+          currency: contract.currency || 'USD',
+          status: 'unpaid',
+          createdAt: new Date().toISOString()
+        });
+        generatedCount++;
+      }
+
+      setIsBulkDialogOpen(false);
+      toast.success(`${generatedCount} factures générées, ${skippedCount} ignorées (déjà existantes).`);
+      
+      if (generatedCount > 0) {
+        await DataService.add('notifications', {
+          title: 'Facturation Groupée Terminée',
+          message: `${generatedCount} factures ont été générées automatiquement pour le mois de ${months[bulkConfig.month - 1]}.`,
+          type: 'success',
+          date: new Date().toISOString(),
+          read: false
+        });
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error('Erreur lors de la génération groupée');
+    }
+  };
 
   const handlePrint = (invoice: Invoice) => {
     setInvoiceToPrint(invoice);
@@ -140,10 +247,10 @@ export default function Invoices() {
     }
   };
 
-  const months = [
-    'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-    'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
-  ];
+  const filteredInvoices = invoices.filter(invoice => {
+    if (statusFilter === 'all') return true;
+    return invoice.status === statusFilter;
+  }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   return (
     <div className="space-y-8">
@@ -154,119 +261,212 @@ export default function Invoices() {
             <p className="text-muted-foreground">Gérez vos factures mensuelles et suivez les paiements.</p>
           </div>
           
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger render={
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Générer Facture
-              </Button>
-            } />
-            <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader>
-                <DialogTitle>Générer une Facture Mensuelle</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-6 py-4">
-                <div className="grid gap-2">
-                  <Label>Contrat Actif</Label>
-                  <Select onValueChange={(val) => setNewInvoice({...newInvoice, contractId: val})}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner un contrat" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {contracts.filter(c => c.status === 'active').map(c => {
-                        const t = tenants.find(tenant => tenant.id === c.tenantId);
-                        const u = units.find(unit => unit.id === c.unitId);
-                        return (
-                          <SelectItem key={c.id} value={c.id}>
-                            <div className="flex flex-col">
-                              <span>{t?.name} - {u?.name}</span>
-                              <span className="text-[10px] text-muted-foreground opacity-70">
-                                {centers.find(center => center.id === c.centerId)?.name || 'N/A'} • {c.rentAmount} {c.currency}
-                              </span>
-                            </div>
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
-                </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={exportToExcel} className="rounded-xl border-emerald-200 hover:bg-emerald-50 text-emerald-700">
+              <FileSpreadsheet className="w-4 h-4 mr-2" />
+              Excel
+            </Button>
 
-                <div className="grid grid-cols-2 gap-4">
+            <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
+              <DialogTrigger render={
+                <Button variant="secondary" className="rounded-xl">
+                  <Zap className="w-4 h-4 mr-2" />
+                  Génération Groupée
+                </Button>
+              } />
+              <DialogContent className="rounded-3xl">
+                <DialogHeader>
+                  <DialogTitle>Facturation Groupée</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-6 py-4">
+                  <p className="text-sm text-muted-foreground">
+                    Générez automatiquement les factures de loyer pour TOUS les contrats actifs qui n'en ont pas encore pour cette période.
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label>Mois</Label>
+                      <Select value={bulkConfig.month.toString()} onValueChange={(val) => setBulkConfig({...bulkConfig, month: parseInt(val)})}>
+                        <SelectTrigger className="rounded-xl">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {months.map((m, i) => (
+                            <SelectItem key={i+1} value={(i+1).toString()}>{m}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label>Année</Label>
+                      <Input 
+                        type="number" 
+                        value={bulkConfig.year}
+                        onChange={(e) => setBulkConfig({...bulkConfig, year: parseInt(e.target.value)})}
+                        className="rounded-xl"
+                      />
+                    </div>
+                  </div>
                   <div className="grid gap-2">
-                    <Label>Mois</Label>
-                    <Select defaultValue={newInvoice.month.toString()} onValueChange={(val) => setNewInvoice({...newInvoice, month: parseInt(val)})}>
+                    <Label>Date d'échéance</Label>
+                    <Input 
+                      type="date" 
+                      value={bulkConfig.dueDate}
+                      onChange={(e) => setBulkConfig({...bulkConfig, dueDate: e.target.value})}
+                      className="rounded-xl"
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button onClick={handleBulkGenerate} className="rounded-xl w-full">Lancer la génération</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger render={
+                <Button className="rounded-xl">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Générer Facture
+                </Button>
+              } />
+              <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader>
+                  <DialogTitle>Générer une Facture Mensuelle</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-6 py-4">
+                  <div className="grid gap-2">
+                    <Label>Contrat Actif</Label>
+                    <Select onValueChange={(val) => setNewInvoice({...newInvoice, contractId: val})}>
                       <SelectTrigger>
-                        <SelectValue />
+                        <SelectValue placeholder="Sélectionner un contrat" />
                       </SelectTrigger>
                       <SelectContent>
-                        {months.map((m, i) => (
-                          <SelectItem key={i+1} value={(i+1).toString()}>{m}</SelectItem>
-                        ))}
+                        {contracts.filter(c => c.status === 'active').map(c => {
+                          const t = tenants.find(tenant => tenant.id === c.tenantId);
+                          const u = units.find(unit => unit.id === c.unitId);
+                          return (
+                            <SelectItem key={c.id} value={c.id}>
+                              <div className="flex flex-col">
+                                <span>{t?.name} - {u?.name}</span>
+                                <span className="text-[10px] text-muted-foreground opacity-70">
+                                  {centers.find(center => center.id === c.centerId)?.name || 'N/A'} • {c.rentAmount} {c.currency}
+                                </span>
+                              </div>
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="grid gap-2">
-                    <Label>Année</Label>
-                    <Input 
-                      type="number" 
-                      value={newInvoice.year}
-                      onChange={(e) => setNewInvoice({...newInvoice, year: parseInt(e.target.value)})}
-                    />
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="water">Eau ($)</Label>
-                    <Input 
-                      id="water" 
-                      type="number" 
-                      value={newInvoice.amountWater}
-                      onChange={(e) => setNewInvoice({...newInvoice, amountWater: parseFloat(e.target.value)})}
-                    />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label>Mois</Label>
+                      <Select defaultValue={newInvoice.month.toString()} onValueChange={(val) => setNewInvoice({...newInvoice, month: parseInt(val)})}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {months.map((m, i) => (
+                            <SelectItem key={i+1} value={(i+1).toString()}>{m}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label>Année</Label>
+                      <Input 
+                        type="number" 
+                        value={newInvoice.year}
+                        onChange={(e) => setNewInvoice({...newInvoice, year: parseInt(e.target.value)})}
+                      />
+                    </div>
                   </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="elec">Électricité ($)</Label>
-                    <Input 
-                      id="elec" 
-                      type="number" 
-                      value={newInvoice.amountElectricity}
-                      onChange={(e) => setNewInvoice({...newInvoice, amountElectricity: parseFloat(e.target.value)})}
-                    />
-                  </div>
-                </div>
 
-                <div className="grid gap-2">
-                  <Label htmlFor="dueDate">Date d'échéance</Label>
-                  <Input 
-                    id="dueDate" 
-                    type="date" 
-                    value={newInvoice.dueDate}
-                    onChange={(e) => setNewInvoice({...newInvoice, dueDate: e.target.value})}
-                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="water">Eau ($)</Label>
+                      <Input 
+                        id="water" 
+                        type="number" 
+                        value={newInvoice.amountWater}
+                        onChange={(e) => setNewInvoice({...newInvoice, amountWater: parseFloat(e.target.value)})}
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="elec">Électricité ($)</Label>
+                      <Input 
+                        id="elec" 
+                        type="number" 
+                        value={newInvoice.amountElectricity}
+                        onChange={(e) => setNewInvoice({...newInvoice, amountElectricity: parseFloat(e.target.value)})}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="dueDate">Date d'échéance</Label>
+                    <Input 
+                      id="dueDate" 
+                      type="date" 
+                      value={newInvoice.dueDate}
+                      onChange={(e) => setNewInvoice({...newInvoice, dueDate: e.target.value})}
+                    />
+                  </div>
                 </div>
-              </div>
-              <DialogFooter>
-                <Button onClick={handleGenerateInvoice}>Générer la facture</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+                <DialogFooter>
+                  <Button onClick={handleGenerateInvoice}>Générer la facture</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
-        <Card>
+        <div className="flex gap-4 mb-6">
+          <Button 
+            variant={statusFilter === 'all' ? 'default' : 'outline'} 
+            onClick={() => setStatusFilter('all')}
+            className="rounded-xl"
+          >
+            Toutes
+          </Button>
+          <Button 
+            variant={statusFilter === 'unpaid' ? 'default' : 'outline'} 
+            onClick={() => setStatusFilter('unpaid')}
+            className="rounded-xl"
+          >
+            Impayées
+          </Button>
+          <Button 
+            variant={statusFilter === 'partial' ? 'default' : 'outline'} 
+            onClick={() => setStatusFilter('partial')}
+            className="rounded-xl"
+          >
+            Partielles
+          </Button>
+          <Button 
+            variant={statusFilter === 'paid' ? 'default' : 'outline'} 
+            onClick={() => setStatusFilter('paid')}
+            className="rounded-xl"
+          >
+            Payées
+          </Button>
+        </div>
+
+        <Card className="rounded-3xl border-none shadow-xl overflow-hidden">
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-muted/50">
               <TableRow>
-                <TableHead>Facture</TableHead>
-                <TableHead>Locataire / Unité</TableHead>
-                <TableHead>Période</TableHead>
-                <TableHead>Total</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="font-bold">Facture</TableHead>
+                <TableHead className="font-bold">Locataire / Unité</TableHead>
+                <TableHead className="font-bold">Période</TableHead>
+                <TableHead className="font-bold">Total</TableHead>
+                <TableHead className="font-bold">Statut</TableHead>
+                <TableHead className="text-right font-bold">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {invoices.map((invoice) => {
+              {filteredInvoices.map((invoice) => {
                 const tenant = tenants.find(t => t.id === invoice.tenantId);
                 const unit = units.find(u => u.id === invoice.unitId);
                 
@@ -276,7 +476,7 @@ export default function Invoices() {
                       <div className="flex flex-col">
                         <div className="flex items-center gap-2 font-medium">
                           <Receipt className="w-4 h-4 text-muted-foreground" />
-                          {invoice.invoiceNumber || `INV-${invoice.id.slice(0, 8).toUpperCase()}`}
+                          {invoice.invoiceNumber || `INV-${String(invoice.id).slice(0, 8).toUpperCase()}`}
                         </div>
                         <span className="text-[10px] text-muted-foreground font-mono ml-6">Code: {invoice.invoiceCode || 'N/A'}</span>
                       </div>
@@ -347,12 +547,15 @@ export default function Invoices() {
                   </TableRow>
                 );
               })}
-              {invoices.length === 0 && (
+              {filteredInvoices.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12">
+                  <TableCell colSpan={6} className="text-center py-20">
                     <div className="flex flex-col items-center text-muted-foreground">
-                      <Receipt className="w-12 h-12 mb-4 opacity-20" />
-                      <p>Aucune facture générée.</p>
+                      <div className="p-4 rounded-full bg-muted mb-4">
+                        <Receipt className="w-12 h-12 opacity-20" />
+                      </div>
+                      <p className="text-lg font-medium">Aucune facture trouvée.</p>
+                      <p className="text-sm">Changez de filtre ou génerer une nouvelle facture.</p>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -360,113 +563,160 @@ export default function Invoices() {
             </TableBody>
           </Table>
         </Card>
+
+        {/* Invoice Details Dialog */}
+        <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+          <DialogContent className="sm:max-w-[500px] rounded-3xl p-0 overflow-hidden border-none shadow-2xl">
+            {selectedInvoice && (() => {
+              const tenant = tenants.find(t => t.id === selectedInvoice.tenantId);
+              const unit = units.find(u => u.id === selectedInvoice.unitId);
+              const center = centers.find(c => c.id === unit?.centerId);
+              const remaining = selectedInvoice.totalAmount - selectedInvoice.amountPaid;
+
+              return (
+                <div id="invoice-details-container" className="flex flex-col">
+                  <div className="bg-primary p-8 text-primary-foreground relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-4 opacity-10">
+                      <Receipt className="w-24 h-24 rotate-12" />
+                    </div>
+                    <div className="relative z-10">
+                      <div className="flex justify-between items-start mb-4">
+                        <Badge variant="outline" className="bg-white/10 text-white border-white/20 px-3 py-1 text-xs uppercase tracking-wider backdrop-blur-md">
+                          {selectedInvoice.status === 'paid' ? 'Payée' : 
+                          selectedInvoice.status === 'partial' ? 'Partielle' : 'Impayée'}
+                        </Badge>
+                        <span id="invoice-date" className="text-xs opacity-70 font-medium">
+                          {format(new Date(selectedInvoice.createdAt), 'dd MMMM yyyy', { locale: fr })}
+                        </span>
+                      </div>
+                      <h2 id="invoice-number-title" className="text-3xl font-bold mb-1">
+                        {selectedInvoice.invoiceNumber || `Facture #${String(selectedInvoice.id).slice(0, 8).toUpperCase()}`}
+                      </h2>
+                      <p id="invoice-code-subtitle" className="text-sm opacity-80 font-mono">CODE: {selectedInvoice.invoiceCode || 'N/A'}</p>
+                    </div>
+                  </div>
+
+                  <div className="p-8 space-y-8 bg-background">
+                    <div className="grid grid-cols-2 gap-8">
+                      <div className="space-y-1">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold italic">Locataire</p>
+                        <p id="detail-tenant-name" className="font-semibold text-lg">{tenant?.name || 'Client Inconnu'}</p>
+                        {tenant?.company && <p className="text-xs text-muted-foreground">{tenant.company}</p>}
+                      </div>
+                      <div className="space-y-1 text-right">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold italic">Unité / Emplacement</p>
+                        <p id="detail-unit-name" className="font-semibold text-lg">{unit?.name || 'N/A'}</p>
+                        <p className="text-xs text-muted-foreground">{center?.name || 'Centre Inconnu'}</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold italic border-b pb-2">Détail des montants</p>
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-muted-foreground">Loyer Mensuel</span>
+                          <span className="font-mono font-medium">{selectedInvoice.amountRent.toLocaleString()} {selectedInvoice.currency}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-muted-foreground">Provision Eau</span>
+                          <span className="font-mono font-medium">{selectedInvoice.amountWater.toLocaleString()} {selectedInvoice.currency}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-muted-foreground">Forfait Électricité</span>
+                          <span className="font-mono font-medium">{selectedInvoice.amountElectricity.toLocaleString()} {selectedInvoice.currency}</span>
+                        </div>
+                        <div className="pt-4 flex justify-between items-end">
+                          <div>
+                            <p className="text-xs font-bold text-primary mb-1 uppercase tracking-tighter">Total à Payer</p>
+                            <p id="invoice-total-amount" className="text-3xl font-black">{selectedInvoice.totalAmount.toLocaleString()} <span className="text-sm font-normal text-muted-foreground">{selectedInvoice.currency}</span></p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[10px] font-bold text-muted-foreground mb-1">Mois de Facturation</p>
+                            <p className="text-sm font-semibold bg-muted px-3 py-1 rounded-full">{months[selectedInvoice.month - 1]} {selectedInvoice.year}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-muted/30 p-6 rounded-2xl space-y-4 border border-muted/50">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                          <span className="text-xs font-bold uppercase text-muted-foreground">Déjà encaissé</span>
+                        </div>
+                        <span id="detail-amount-paid" className="font-mono font-bold text-emerald-600">
+                          {selectedInvoice.amountPaid.toLocaleString()} {selectedInvoice.currency}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center bg-white p-3 rounded-xl shadow-sm border border-muted/20">
+                        <span className="text-xs font-bold uppercase text-muted-foreground">Reste à solder</span>
+                        <span id="detail-remaining-amount" className={`font-mono font-black ${remaining > 0 ? 'text-destructive' : 'text-emerald-600'}`}>
+                          {remaining.toLocaleString()} {selectedInvoice.currency}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-8 pt-0 flex gap-3">
+                    <Button id="btn-print-invoice" className="flex-1 rounded-xl h-12 font-bold" onClick={() => handlePrint(selectedInvoice)}>
+                      <Printer className="w-4 h-4 mr-2" /> Imprimer
+                    </Button>
+                    <Button id="btn-close-details" variant="outline" className="flex-1 rounded-xl h-12 font-bold" onClick={() => setIsDetailsOpen(false)}>
+                      Fermer
+                    </Button>
+                  </div>
+                </div>
+              );
+            })()}
+          </DialogContent>
+        </Dialog>
+
+        {/* Quick Payment Dialog */}
+        <Dialog open={isPaymentOpen} onOpenChange={setIsPaymentOpen}>
+          <DialogContent className="sm:max-w-[400px]">
+            <DialogHeader>
+              <DialogTitle>Enregistrer un Paiement</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="qAmount">Montant ($)</Label>
+                <Input 
+                  id="qAmount" 
+                  type="number" 
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(parseFloat(e.target.value))}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>Méthode</Label>
+                <Select defaultValue="cash" onValueChange={(val: any) => setPaymentMethod(val)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">Espèces (Cash)</SelectItem>
+                    <SelectItem value="mobile_money">Mobile Money</SelectItem>
+                    <SelectItem value="bank">Virement Bancaire</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="qRef">Référence</Label>
+                <Input 
+                  id="qRef" 
+                  value={paymentRef}
+                  onChange={(e) => setPaymentRef(e.target.value)}
+                  placeholder="N° Reçu, Ref..."
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsPaymentOpen(false)}>Annuler</Button>
+              <Button onClick={handleQuickPayment}>Confirmer</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
-
-      {/* Invoice Details Dialog */}
-      <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle>Détails de la Facture</DialogTitle>
-          </DialogHeader>
-          {selectedInvoice && (
-            <div className="space-y-6 py-4">
-              <div className="flex justify-between items-center border-b pb-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">N° Facture</p>
-                  <p className="font-bold">{selectedInvoice.invoiceNumber || 'N/A'}</p>
-                  <p className="text-[10px] text-muted-foreground font-mono">Code: {selectedInvoice.invoiceCode || 'N/A'}</p>
-                </div>
-                <Badge variant={
-                  selectedInvoice.status === 'paid' ? 'default' : 
-                  selectedInvoice.status === 'partial' ? 'secondary' : 'destructive'
-                }>
-                  {selectedInvoice.status === 'paid' ? 'Payée' : 
-                   selectedInvoice.status === 'partial' ? 'Partielle' : 'Impayée'}
-                </Badge>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Loyer Mensuel</span>
-                  <span className="font-medium">{selectedInvoice.amountRent.toLocaleString()} {selectedInvoice.currency}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Consommation Eau</span>
-                  <span className="font-medium">{selectedInvoice.amountWater.toLocaleString()} {selectedInvoice.currency}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Consommation Électricité</span>
-                  <span className="font-medium">{selectedInvoice.amountElectricity.toLocaleString()} {selectedInvoice.currency}</span>
-                </div>
-                <div className="pt-3 border-t flex justify-between items-center">
-                  <span className="font-bold">TOTAL À PAYER</span>
-                  <span className="text-xl font-bold text-primary">{selectedInvoice.totalAmount.toLocaleString()} {selectedInvoice.currency}</span>
-                </div>
-              </div>
-
-              <div className="bg-muted/50 p-4 rounded-lg space-y-2">
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Déjà payé</span>
-                  <span className="font-semibold text-emerald-600">{selectedInvoice.amountPaid.toLocaleString()} {selectedInvoice.currency}</span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Reste à payer</span>
-                  <span className="font-semibold text-destructive">{(selectedInvoice.totalAmount - selectedInvoice.amountPaid).toLocaleString()} {selectedInvoice.currency}</span>
-                </div>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDetailsOpen(false)}>Fermer</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Quick Payment Dialog */}
-      <Dialog open={isPaymentOpen} onOpenChange={setIsPaymentOpen}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle>Enregistrer un Paiement</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="qAmount">Montant ($)</Label>
-              <Input 
-                id="qAmount" 
-                type="number" 
-                value={paymentAmount}
-                onChange={(e) => setPaymentAmount(parseFloat(e.target.value))}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label>Méthode</Label>
-              <Select defaultValue="cash" onValueChange={(val: any) => setPaymentMethod(val)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cash">Espèces (Cash)</SelectItem>
-                  <SelectItem value="mobile_money">Mobile Money</SelectItem>
-                  <SelectItem value="bank">Virement Bancaire</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="qRef">Référence</Label>
-              <Input 
-                id="qRef" 
-                value={paymentRef}
-                onChange={(e) => setPaymentRef(e.target.value)}
-                placeholder="N° Reçu, Ref..."
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsPaymentOpen(false)}>Annuler</Button>
-            <Button onClick={handleQuickPayment}>Confirmer</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Invoice Print View */}
       {invoiceToPrint && (

@@ -55,7 +55,7 @@ export default function Centers() {
   
   const [isCenterDialogOpen, setIsCenterDialogOpen] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState<{id: any, type: 'centers' | 'buildings' | 'units'} | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<{id: any, type: 'centers' | 'buildings' | 'units', name: string} | null>(null);
   const [newCenter, setNewCenter] = useState({ name: '', location: '', description: '' });
   const [newBuilding, setNewBuilding] = useState({ centerId: '', name: '', description: '' });
   const [newUnit, setNewUnit] = useState({ 
@@ -125,10 +125,21 @@ export default function Centers() {
   const handleDeleteItem = async () => {
     if (!itemToDelete) return;
     try {
+      if (itemToDelete.type === 'centers') {
+        // Cascade delete buildings and units
+        const buildingIds = (await dbLocal.buildings.where('centerId').equals(itemToDelete.id).toArray()).map(b => b.id);
+        await dbLocal.buildings.where('centerId').equals(itemToDelete.id).delete();
+        await dbLocal.units.where('centerId').equals(itemToDelete.id).delete();
+      } else if (itemToDelete.type === 'buildings') {
+        // Cascade delete units
+        await dbLocal.units.where('buildingId').equals(itemToDelete.id).delete();
+      }
+
       await DataService.delete(itemToDelete.type, itemToDelete.id);
-      toast.success('Élément supprimé avec succès');
+      toast.success(`${itemToDelete.name} supprimé avec succès`);
       setItemToDelete(null);
     } catch (e) {
+      console.error(e);
       toast.error('Erreur lors de la suppression');
     }
   };
@@ -260,17 +271,32 @@ export default function Centers() {
                     />
                   </div>
                 </div>
-                <div className="grid gap-2">
-                  <Label>Type d'unité</Label>
-                  <Select value={newUnit.type} onValueChange={(val: any) => setNewUnit({...newUnit, type: val})}>
-                    <SelectTrigger className="rounded-xl">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="shop">Magasin / Boutique</SelectItem>
-                      <SelectItem value="office">Bureau</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label>Type d'unité</Label>
+                    <Select value={newUnit.type} onValueChange={(val: any) => setNewUnit({...newUnit, type: val})}>
+                      <SelectTrigger className="rounded-xl">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="shop">Magasin / Boutique</SelectItem>
+                        <SelectItem value="office">Bureau</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Statut initial</Label>
+                    <Select value={newUnit.status} onValueChange={(val: any) => setNewUnit({...newUnit, status: val})}>
+                      <SelectTrigger className="rounded-xl">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="free">Libre</SelectItem>
+                        <SelectItem value="occupied">Occupé</SelectItem>
+                        <SelectItem value="maintenance">Maintenance</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
               <DialogFooter>
@@ -356,7 +382,7 @@ export default function Centers() {
                           <Edit className="w-4 h-4 mr-2" /> Modifier
                         </DropdownMenuItem>
                         <DropdownMenuItem className="text-destructive" onClick={() => {
-                          setItemToDelete({ id: center.id, type: 'centers' });
+                          setItemToDelete({ id: center.id, type: 'centers', name: center.name });
                           setIsConfirmOpen(true);
                         }}>
                           <Trash2 className="w-4 h-4 mr-2" /> Supprimer
@@ -416,7 +442,7 @@ export default function Centers() {
                           <Edit className="w-4 h-4" />
                         </Button>
                         <Button variant="ghost" size="icon" className="text-destructive" onClick={() => {
-                          setItemToDelete({ id: building.id, type: 'buildings' });
+                          setItemToDelete({ id: building.id, type: 'buildings', name: building.name });
                           setIsConfirmOpen(true);
                         }}>
                           <Trash2 className="w-4 h-4" />
@@ -477,7 +503,7 @@ export default function Centers() {
                           <Edit className="w-4 h-4" />
                         </Button>
                         <Button variant="ghost" size="icon" className="text-destructive" onClick={() => {
-                          setItemToDelete({ id: unit.id, type: 'units' });
+                          setItemToDelete({ id: unit.id, type: 'units', name: unit.name });
                           setIsConfirmOpen(true);
                         }}>
                           <Trash2 className="w-4 h-4" />
@@ -502,8 +528,14 @@ export default function Centers() {
       <ConfirmDialog 
         open={isConfirmOpen}
         onOpenChange={setIsConfirmOpen}
-        title="Confirmer la suppression"
-        description="Êtes-vous sûr de vouloir supprimer cet élément ? Cette action supprimera également toutes les données liées."
+        title={`Supprimer ${itemToDelete?.name || 'l\'élément'}`}
+        description={
+          itemToDelete?.type === 'centers' 
+            ? "Attention: Supprimer ce centre supprimera également tous les immeubles et toutes les unités qui lui sont rattachés. Cette action est irréversible."
+            : itemToDelete?.type === 'buildings'
+            ? "Attention: Supprimer cet immeuble supprimera également toutes les unités qui lui sont rattachées. Cette action est irréversible."
+            : "Êtes-vous sûr de vouloir supprimer cette unité ? Cette action est irréversible."
+        }
         onConfirm={handleDeleteItem}
       />
     </div>

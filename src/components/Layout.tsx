@@ -3,6 +3,8 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { useAppStore } from '../store/useAppStore';
 import { 
+  PieChart,
+  Wrench,
   LayoutDashboard, 
   Building2, 
   Users, 
@@ -82,6 +84,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { to: '/payments', icon: CreditCard, label: 'Paiements' },
     { to: '/expenses', icon: TrendingDown, label: 'Dépenses' },
     { to: '/reports', icon: BarChart3, label: 'Rapports' },
+    { to: '/analytics', icon: PieChart, label: 'Analyses Pro' },
+    { to: '/maintenance', icon: Wrench, label: 'Maintenance' },
     { to: '/database', icon: ShieldCheck, label: 'Stockage Local' },
   ];
 

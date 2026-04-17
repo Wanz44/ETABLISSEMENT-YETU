@@ -90,6 +90,7 @@ export interface Payment {
   date: string;
   method: 'cash' | 'mobile_money' | 'bank';
   reference: string;
+  serialNumber: string;
 }
 
 export interface Expense {
@@ -100,4 +101,26 @@ export interface Expense {
   category: string;
   date: string;
   centerId?: string;
+}
+
+export interface MaintenanceTicket {
+  id: string;
+  unitId: string;
+  centerId: string;
+  title: string;
+  description: string;
+  status: 'pending' | 'in_progress' | 'completed';
+  priority: 'low' | 'medium' | 'high';
+  createdAt: string;
+  estimatedCost?: number;
+  actualCost?: number;
+}
+
+export interface AppNotification {
+  id: string;
+  title: string;
+  message: string;
+  type: 'info' | 'warning' | 'error' | 'success';
+  date: string;
+  read: boolean;
 }
