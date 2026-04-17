@@ -49,12 +49,16 @@ export interface Contract {
   id: string;
   tenantId: string;
   unitId: string;
+  centerId: string; // Adding centerId for easier filtering
   startDate: string;
   endDate: string;
   rentAmount: number;
+  depositAmount: number;
   currency: Currency;
   chargesIncluded: boolean;
   status: 'active' | 'expired' | 'terminated';
+  type: 'commercial' | 'professional' | 'residential';
+  notes?: string;
 }
 
 export interface Invoice {

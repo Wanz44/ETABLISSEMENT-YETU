@@ -50,10 +50,11 @@ export default function Invoices() {
       contracts: await dbLocal.contracts.toArray(),
       tenants: await dbLocal.tenants.toArray(),
       units: await dbLocal.units.toArray(),
+      centers: await dbLocal.centers.toArray(),
     };
-  }) || { invoices: [], contracts: [], tenants: [], units: [] };
+  }) || { invoices: [], contracts: [], tenants: [], units: [], centers: [] };
 
-  const { invoices, contracts, tenants, units } = data;
+  const { invoices, contracts, tenants, units, centers } = data;
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
@@ -177,7 +178,12 @@ export default function Invoices() {
                         const u = units.find(unit => unit.id === c.unitId);
                         return (
                           <SelectItem key={c.id} value={c.id}>
-                            {t?.name} - {u?.name} ({c.rentAmount} $)
+                            <div className="flex flex-col">
+                              <span>{t?.name} - {u?.name}</span>
+                              <span className="text-[10px] text-muted-foreground opacity-70">
+                                {centers.find(center => center.id === c.centerId)?.name || 'N/A'} • {c.rentAmount} {c.currency}
+                              </span>
+                            </div>
                           </SelectItem>
                         );
                       })}

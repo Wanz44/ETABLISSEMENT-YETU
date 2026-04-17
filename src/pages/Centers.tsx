@@ -28,6 +28,13 @@ import {
 } from '../components/ui/dropdown-menu';
 import { Badge } from '../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '../components/ui/select';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { dbLocal } from '../lib/db';
 import { DataService } from '../lib/data';
@@ -50,6 +57,18 @@ export default function Centers() {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{id: any, type: 'centers' | 'buildings' | 'units'} | null>(null);
   const [newCenter, setNewCenter] = useState({ name: '', location: '', description: '' });
+  const [newBuilding, setNewBuilding] = useState({ centerId: '', name: '', description: '' });
+  const [newUnit, setNewUnit] = useState({ 
+    centerId: '', 
+    buildingId: '', 
+    name: '', 
+    type: 'shop' as const, 
+    status: 'free' as const, 
+    floor: '' 
+  });
+
+  const [isBuildingDialogOpen, setIsBuildingDialogOpen] = useState(false);
+  const [isUnitDialogOpen, setIsUnitDialogOpen] = useState(false);
 
   const handleAddCenter = async () => {
     if (!newCenter.name) {
@@ -63,6 +82,43 @@ export default function Centers() {
       toast.success('Centre commercial ajouté avec succès (Local-First)');
     } catch (e) {
       toast.error('Erreur lors de l\'ajout du centre');
+    }
+  };
+
+  const handleAddBuilding = async () => {
+    if (!newBuilding.name || !newBuilding.centerId) {
+      toast.error('Veuillez remplir les champs obligatoires');
+      return;
+    }
+    try {
+      await DataService.add('buildings', newBuilding);
+      setNewBuilding({ centerId: '', name: '', description: '' });
+      setIsBuildingDialogOpen(false);
+      toast.success('Immeuble ajouté avec succès');
+    } catch (e) {
+      toast.error('Erreur lors de l\'ajout de l\'immeuble');
+    }
+  };
+
+  const handleAddUnit = async () => {
+    if (!newUnit.name || !newUnit.centerId || !newUnit.buildingId) {
+      toast.error('Veuillez remplir les champs obligatoires');
+      return;
+    }
+    try {
+      await DataService.add('units', newUnit);
+      setNewUnit({ 
+        centerId: '', 
+        buildingId: '', 
+        name: '', 
+        type: 'shop', 
+        status: 'free', 
+        floor: '' 
+      });
+      setIsUnitDialogOpen(false);
+      toast.success('Unité ajoutée avec succès');
+    } catch (e) {
+      toast.error('Erreur lors de l\'ajout de l\'unité');
     }
   };
 
@@ -85,50 +141,192 @@ export default function Centers() {
           <p className="text-muted-foreground">Gérez vos centres commerciaux, immeubles et unités locatives.</p>
         </div>
         
-        <Dialog open={isCenterDialogOpen} onOpenChange={setIsCenterDialogOpen}>
-          <DialogTrigger render={
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
-              Nouveau Centre
-            </Button>
-          } />
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Ajouter un Centre Commercial</DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="name">Nom du centre</Label>
-                <Input 
-                  id="name" 
-                  value={newCenter.name} 
-                  onChange={(e) => setNewCenter({...newCenter, name: e.target.value})} 
-                  placeholder="ex: Centre Ville"
-                />
+        <div className="flex gap-2">
+          <Dialog open={isBuildingDialogOpen} onOpenChange={setIsBuildingDialogOpen}>
+            <DialogTrigger render={
+              <Button variant="outline">
+                <Plus className="w-4 h-4 mr-2" />
+                Immeuble
+              </Button>
+            } />
+            <DialogContent className="rounded-3xl">
+              <DialogHeader>
+                <DialogTitle>Ajouter un Immeuble</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label>Centre Commercial</Label>
+                  <Select onValueChange={(val) => setNewBuilding({...newBuilding, centerId: val})}>
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue placeholder="Sélectionner un centre" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {centers.map(c => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="b-name">Nom de l'immeuble</Label>
+                  <Input 
+                    id="b-name" 
+                    value={newBuilding.name} 
+                    onChange={(e) => setNewBuilding({...newBuilding, name: e.target.value})} 
+                    placeholder="ex: Bloc A"
+                    className="rounded-xl"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="b-desc">Description</Label>
+                  <Input 
+                    id="b-desc" 
+                    value={newBuilding.description} 
+                    onChange={(e) => setNewBuilding({...newBuilding, description: e.target.value})} 
+                    className="rounded-xl"
+                  />
+                </div>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="location">Localisation</Label>
-                <Input 
-                  id="location" 
-                  value={newCenter.location} 
-                  onChange={(e) => setNewCenter({...newCenter, location: e.target.value})} 
-                  placeholder="ex: Gombe, Kinshasa"
-                />
+              <DialogFooter>
+                <Button onClick={handleAddBuilding} className="rounded-xl">Enregistrer</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={isUnitDialogOpen} onOpenChange={setIsUnitDialogOpen}>
+            <DialogTrigger render={
+              <Button variant="outline">
+                <Plus className="w-4 h-4 mr-2" />
+                Unité
+              </Button>
+            } />
+            <DialogContent className="rounded-3xl sm:max-w-[450px]">
+              <DialogHeader>
+                <DialogTitle>Ajouter une Unité Locative</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label>Centre</Label>
+                    <Select onValueChange={(val) => {
+                      setNewUnit({...newUnit, centerId: val, buildingId: ''});
+                    }}>
+                      <SelectTrigger className="rounded-xl">
+                        <SelectValue placeholder="Choisir" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {centers.map(c => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Immeuble</Label>
+                    <Select 
+                      disabled={!newUnit.centerId}
+                      onValueChange={(val) => setNewUnit({...newUnit, buildingId: val})}
+                    >
+                      <SelectTrigger className="rounded-xl">
+                        <SelectValue placeholder="Choisir" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {buildings.filter(b => b.centerId === newUnit.centerId).map(b => (
+                          <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="u-name">Nom/Numéro Unité</Label>
+                    <Input 
+                      id="u-name" 
+                      value={newUnit.name} 
+                      onChange={(e) => setNewUnit({...newUnit, name: e.target.value})} 
+                      placeholder="ex: Boutique 01"
+                      className="rounded-xl"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="u-floor">Étage</Label>
+                    <Input 
+                      id="u-floor" 
+                      value={newUnit.floor} 
+                      onChange={(e) => setNewUnit({...newUnit, floor: e.target.value})} 
+                      placeholder="ex: RDC, 1er..."
+                      className="rounded-xl"
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Type d'unité</Label>
+                  <Select value={newUnit.type} onValueChange={(val: any) => setNewUnit({...newUnit, type: val})}>
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="shop">Magasin / Boutique</SelectItem>
+                      <SelectItem value="office">Bureau</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="description">Description (Optionnel)</Label>
-                <Input 
-                  id="description" 
-                  value={newCenter.description} 
-                  onChange={(e) => setNewCenter({...newCenter, description: e.target.value})} 
-                />
+              <DialogFooter>
+                <Button onClick={handleAddUnit} className="rounded-xl">Enregistrer l'unité</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={isCenterDialogOpen} onOpenChange={setIsCenterDialogOpen}>
+            <DialogTrigger render={
+              <Button>
+                <Plus className="w-4 h-4 mr-2" />
+                Centre
+              </Button>
+            } />
+            <DialogContent className="rounded-3xl">
+              <DialogHeader>
+                <DialogTitle>Ajouter un Centre Commercial</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="name">Nom du centre</Label>
+                  <Input 
+                    id="name" 
+                    value={newCenter.name} 
+                    onChange={(e) => setNewCenter({...newCenter, name: e.target.value})} 
+                    placeholder="ex: Centre Ville"
+                    className="rounded-xl"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="location">Localisation</Label>
+                  <Input 
+                    id="location" 
+                    value={newCenter.location} 
+                    onChange={(e) => setNewCenter({...newCenter, location: e.target.value})} 
+                    placeholder="ex: Gombe, Kinshasa"
+                    className="rounded-xl"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="description">Description (Optionnel)</Label>
+                  <Input 
+                    id="description" 
+                    value={newCenter.description} 
+                    onChange={(e) => setNewCenter({...newCenter, description: e.target.value})} 
+                    className="rounded-xl"
+                  />
+                </div>
               </div>
-            </div>
-            <DialogFooter>
-              <Button onClick={handleAddCenter}>Enregistrer</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              <DialogFooter>
+                <Button onClick={handleAddCenter} className="rounded-xl">Enregistrer</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <Tabs defaultValue="centers" className="w-full">
