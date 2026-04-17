@@ -148,7 +148,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       {/* Desktop Sidebar */}
       <aside 
         className={cn(
-          "hidden lg:flex flex-col sticky top-4 h-[calc(100vh-2rem)] my-4 ml-4 bg-card border rounded-3xl transition-all duration-300 shadow-xl shadow-foreground/5 z-40",
+          "hidden lg:flex flex-col sticky top-4 h-[calc(100vh-2rem)] my-4 ml-4 bg-card border rounded-3xl transition-all duration-300 shadow-xl shadow-foreground/5 z-40 no-print",
           collapsed ? "w-20" : "w-64"
         )}
       >
@@ -164,7 +164,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Mobile Nav Trigger */}
-      <div className="lg:hidden fixed bottom-6 right-6 z-50">
+      <div className="lg:hidden fixed bottom-6 right-6 z-50 no-print">
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger render={
             <Button size="icon" className="w-14 h-14 rounded-full shadow-2xl shadow-primary/40">

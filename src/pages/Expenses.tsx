@@ -27,7 +27,9 @@ import {
   TableHeader, 
   TableRow 
 } from '../components/ui/table';
-import { subscribeCollection, addDocument, deleteDocument } from '../lib/firestore';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { dbLocal } from '../lib/db';
+import { DataService } from '../lib/data';
 import { Expense, Center } from '../types';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -35,11 +37,19 @@ import { fr } from 'date-fns/locale';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
 export default function Expenses() {
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [centers, setCenters] = useState<Center[]>([]);
+  const data = useLiveQuery(async () => {
+    const expenses = await dbLocal.expenses.toArray();
+    return {
+      expenses: expenses.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+      centers: await dbLocal.centers.toArray(),
+    };
+  }) || { expenses: [], centers: [] };
+
+  const { expenses, centers } = data;
+  
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
-  const [expenseToDelete, setExpenseToDelete] = useState<string | null>(null);
+  const [expenseToDelete, setExpenseToDelete] = useState<any>(null);
   
   const [newExpense, setNewExpense] = useState({
     description: '',
@@ -50,18 +60,6 @@ export default function Expenses() {
     centerId: ''
   });
 
-  useEffect(() => {
-    const unsubExpenses = subscribeCollection<Expense>('expenses', (data) => {
-      setExpenses(data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-    });
-    const unsubCenters = subscribeCollection<Center>('centers', setCenters);
-    
-    return () => {
-      unsubExpenses();
-      unsubCenters();
-    };
-  }, []);
-
   const handleAddExpense = async () => {
     if (!newExpense.description || !newExpense.amount) {
       toast.error('Veuillez remplir les champs obligatoires');
@@ -69,7 +67,7 @@ export default function Expenses() {
     }
 
     try {
-      await addDocument('expenses', {
+      await DataService.add('expenses', {
         ...newExpense,
         createdAt: new Date().toISOString()
       });
@@ -82,7 +80,7 @@ export default function Expenses() {
         date: format(new Date(), 'yyyy-MM-dd'),
         centerId: ''
       });
-      toast.success('Dépense enregistrée avec succès');
+      toast.success('Dépense enregistrée avec succès (Local-First)');
     } catch (e) {
       toast.error('Erreur lors de l\'enregistrement');
     }
@@ -91,7 +89,7 @@ export default function Expenses() {
   const handleDeleteExpense = async () => {
     if (!expenseToDelete) return;
     try {
-      await deleteDocument('expenses', expenseToDelete);
+      await DataService.delete('expenses', expenseToDelete);
       toast.success('Dépense supprimée');
       setExpenseToDelete(null);
     } catch (e) {

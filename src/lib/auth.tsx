@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { UserProfile } from '../types';
+import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../firebase';
 
 interface AuthContextType {
   user: any | null;
@@ -27,10 +29,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Set default admin immediately
-    setUser({ uid: 'admin-default', email: 'admin@yetu.com' });
-    setProfile(DEFAULT_ADMIN);
-    setLoading(false);
+    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+      if (fbUser) {
+        setUser(fbUser);
+        setProfile(DEFAULT_ADMIN);
+        setLoading(false);
+      } else {
+        try {
+          await signInAnonymously(auth);
+        } catch (error) {
+          console.error("Firebase Auth failed:", error);
+          // Fallback to fake user if firebase fails
+          setUser({ uid: 'admin-default', email: 'admin@yetu.com' });
+          setProfile(DEFAULT_ADMIN);
+          setLoading(false);
+        }
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const login = async () => {};

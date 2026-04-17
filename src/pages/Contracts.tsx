@@ -35,16 +35,24 @@ import {
 } from '../components/ui/dropdown-menu';
 import { Badge } from '../components/ui/badge';
 import { Checkbox } from '../components/ui/checkbox';
-import { subscribeCollection, addDocument, updateDocument } from '../lib/firestore';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { dbLocal } from '../lib/db';
+import { DataService } from '../lib/data';
 import { Contract, Tenant, Unit } from '../types';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 export default function Contracts() {
-  const [contracts, setContracts] = useState<Contract[]>([]);
-  const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [units, setUnits] = useState<Unit[]>([]);
+  const data = useLiveQuery(async () => {
+    return {
+      contracts: await dbLocal.contracts.toArray(),
+      tenants: await dbLocal.tenants.toArray(),
+      units: await dbLocal.units.toArray(),
+    };
+  }) || { contracts: [], tenants: [], units: [] };
+
+  const { contracts, tenants, units } = data;
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newContract, setNewContract] = useState({
@@ -58,27 +66,15 @@ export default function Contracts() {
     status: 'active' as const
   });
 
-  useEffect(() => {
-    const unsubContracts = subscribeCollection<Contract>('contracts', setContracts);
-    const unsubTenants = subscribeCollection<Tenant>('tenants', setTenants);
-    const unsubUnits = subscribeCollection<Unit>('units', setUnits);
-    
-    return () => {
-      unsubContracts();
-      unsubTenants();
-      unsubUnits();
-    };
-  }, []);
-
   const handleAddContract = async () => {
     if (!newContract.tenantId || !newContract.unitId || !newContract.startDate || !newContract.rentAmount) {
       toast.error('Veuillez remplir tous les champs obligatoires');
       return;
     }
     try {
-      await addDocument('contracts', newContract);
+      await DataService.add('contracts', newContract);
       // Update unit status to occupied
-      await updateDocument('units', newContract.unitId, { status: 'occupied' });
+      await DataService.update('units', newContract.unitId, { status: 'occupied' });
       
       setNewContract({
         tenantId: '',
@@ -86,11 +82,12 @@ export default function Contracts() {
         startDate: '',
         endDate: '',
         rentAmount: 0,
+        currency: 'USD',
         chargesIncluded: false,
         status: 'active'
       });
       setIsDialogOpen(false);
-      toast.success('Contrat créé avec succès');
+      toast.success('Contrat créé avec succès (Local-First)');
     } catch (e) {
       toast.error('Erreur lors de la création du contrat');
     }

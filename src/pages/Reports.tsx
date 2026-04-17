@@ -20,7 +20,8 @@ import {
 } from '../components/ui/select';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { subscribeCollection } from '../lib/firestore';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { dbLocal } from '../lib/db';
 import { Payment, Expense, Center, Unit, Contract } from '../types';
 import { cn } from '../lib/utils';
 import { format, startOfMonth, endOfMonth, isWithinInterval, parseISO, subMonths } from 'date-fns';
@@ -42,11 +43,11 @@ import {
 } from 'recharts';
 
 export default function Reports() {
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [centers, setCenters] = useState<Center[]>([]);
-  const [units, setUnits] = useState<Unit[]>([]);
-  const [contracts, setContracts] = useState<Contract[]>([]);
+  const payments = useLiveQuery(() => dbLocal.payments.toArray()) || [];
+  const expenses = useLiveQuery(() => dbLocal.expenses.toArray()) || [];
+  const centers = useLiveQuery(() => dbLocal.centers.toArray()) || [];
+  const units = useLiveQuery(() => dbLocal.units.toArray()) || [];
+  const contracts = useLiveQuery(() => dbLocal.contracts.toArray()) || [];
 
   const [dateRange, setDateRange] = useState({
     start: format(startOfMonth(subMonths(new Date(), 5)), 'yyyy-MM-dd'),
@@ -54,22 +55,6 @@ export default function Reports() {
   });
   const [selectedCenter, setSelectedCenter] = useState<string>('all');
   const [selectedCurrency, setSelectedCurrency] = useState<'USD' | 'CDF'>('USD');
-
-  useEffect(() => {
-    const unsubPayments = subscribeCollection<Payment>('payments', setPayments);
-    const unsubExpenses = subscribeCollection<Expense>('expenses', setExpenses);
-    const unsubCenters = subscribeCollection<Center>('centers', setCenters);
-    const unsubUnits = subscribeCollection<Unit>('units', setUnits);
-    const unsubContracts = subscribeCollection<Contract>('contracts', setContracts);
-
-    return () => {
-      unsubPayments();
-      unsubExpenses();
-      unsubCenters();
-      unsubUnits();
-      unsubContracts();
-    };
-  }, []);
 
   const filteredData = useMemo(() => {
     const start = parseISO(dateRange.start);
@@ -353,7 +338,7 @@ export default function Reports() {
                 </tr>
               </thead>
               <tbody className="[&_tr:last-child]:border-0">
-                {chartData.reverse().map((row) => (
+                {chartData.slice().reverse().map((row) => (
                   <tr key={row.month} className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
                     <td className="p-2 align-middle font-medium">{row.month}</td>
                     <td className="p-2 align-middle text-right text-emerald-600">{row.revenue.toLocaleString()}</td>

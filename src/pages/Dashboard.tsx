@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { 
   TrendingUp, 
   Users, 
@@ -22,52 +22,38 @@ import {
   ResponsiveContainer,
   Cell
 } from 'recharts';
-import { subscribeCollection } from '../lib/firestore';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { dbLocal } from '../lib/db';
 import { Invoice, Tenant, Unit, Payment } from '../types';
 import { cn } from '../lib/utils';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 export default function Dashboard() {
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [units, setUnits] = useState<Unit[]>([]);
-  const [payments, setPayments] = useState<Payment[]>([]);
-
-  const [stats, setStats] = useState({
-    totalRevenue: 0,
-    totalUnpaid: 0,
-    occupancyRate: 0,
-    totalTenants: 0
-  });
-
-  useEffect(() => {
-    const unsubInvoices = subscribeCollection<Invoice>('invoices', setInvoices);
-    const unsubTenants = subscribeCollection<Tenant>('tenants', setTenants);
-    const unsubUnits = subscribeCollection<Unit>('units', setUnits);
-    const unsubPayments = subscribeCollection<Payment>('payments', setPayments);
-
-    return () => {
-      unsubInvoices();
-      unsubTenants();
-      unsubUnits();
-      unsubPayments();
+  const data = useLiveQuery(async () => {
+    return {
+      invoices: await dbLocal.invoices.toArray(),
+      tenants: await dbLocal.tenants.toArray(),
+      units: await dbLocal.units.toArray(),
+      payments: await dbLocal.payments.toArray(),
     };
-  }, []);
+  }) || { invoices: [], tenants: [], units: [], payments: [] };
 
-  useEffect(() => {
+  const { invoices, tenants, units, payments } = data;
+
+  const stats = useMemo(() => {
     const totalRevenue = payments.reduce((acc, p) => acc + p.amount, 0);
     const totalUnpaid = invoices.reduce((acc, inv) => acc + (inv.totalAmount - inv.amountPaid), 0);
     const totalTenants = tenants.length;
     const occupiedUnits = units.filter(u => u.status === 'occupied').length;
     const occupancyRate = units.length > 0 ? Math.round((occupiedUnits / units.length) * 100) : 0;
 
-    setStats({
+    return {
       totalRevenue,
       totalUnpaid,
       occupancyRate,
       totalTenants
-    });
+    };
   }, [invoices, tenants, units, payments]);
 
   const revenueData = [

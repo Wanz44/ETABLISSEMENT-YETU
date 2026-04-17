@@ -28,32 +28,28 @@ import {
 } from '../components/ui/dropdown-menu';
 import { Badge } from '../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { subscribeCollection, addDocument, updateDocument, deleteDocument } from '../lib/firestore';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { dbLocal } from '../lib/db';
+import { DataService } from '../lib/data';
 import { Center, Building, Unit } from '../types';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
 export default function Centers() {
-  const [centers, setCenters] = useState<Center[]>([]);
-  const [buildings, setBuildings] = useState<Building[]>([]);
-  const [units, setUnits] = useState<Unit[]>([]);
+  const data = useLiveQuery(async () => {
+    return {
+      centers: await dbLocal.centers.toArray(),
+      buildings: await dbLocal.buildings.toArray(),
+      units: await dbLocal.units.toArray(),
+    };
+  }) || { centers: [], buildings: [], units: [] };
+
+  const { centers, buildings, units } = data;
   
   const [isCenterDialogOpen, setIsCenterDialogOpen] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState<{id: string, type: 'centers' | 'buildings' | 'units'} | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<{id: any, type: 'centers' | 'buildings' | 'units'} | null>(null);
   const [newCenter, setNewCenter] = useState({ name: '', location: '', description: '' });
-
-  useEffect(() => {
-    const unsubCenters = subscribeCollection<Center>('centers', setCenters);
-    const unsubBuildings = subscribeCollection<Building>('buildings', setBuildings);
-    const unsubUnits = subscribeCollection<Unit>('units', setUnits);
-    
-    return () => {
-      unsubCenters();
-      unsubBuildings();
-      unsubUnits();
-    };
-  }, []);
 
   const handleAddCenter = async () => {
     if (!newCenter.name) {
@@ -61,10 +57,10 @@ export default function Centers() {
       return;
     }
     try {
-      await addDocument('centers', { ...newCenter, createdAt: new Date().toISOString() });
+      await DataService.add('centers', { ...newCenter, createdAt: new Date().toISOString() });
       setNewCenter({ name: '', location: '', description: '' });
       setIsCenterDialogOpen(false);
-      toast.success('Centre commercial ajouté avec succès');
+      toast.success('Centre commercial ajouté avec succès (Local-First)');
     } catch (e) {
       toast.error('Erreur lors de l\'ajout du centre');
     }
@@ -73,7 +69,7 @@ export default function Centers() {
   const handleDeleteItem = async () => {
     if (!itemToDelete) return;
     try {
-      await deleteDocument(itemToDelete.type, itemToDelete.id);
+      await DataService.delete(itemToDelete.type, itemToDelete.id);
       toast.success('Élément supprimé avec succès');
       setItemToDelete(null);
     } catch (e) {

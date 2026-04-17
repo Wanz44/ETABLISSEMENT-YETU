@@ -27,18 +27,22 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from '../components/ui/dropdown-menu';
-import { subscribeCollection, addDocument, deleteDocument } from '../lib/firestore';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { dbLocal } from '../lib/db';
+import { DataService } from '../lib/data';
 import { Tenant } from '../types';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
 export default function Tenants() {
   const navigate = useNavigate();
-  const [tenants, setTenants] = useState<Tenant[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
-  const [tenantToDelete, setTenantToDelete] = useState<string | null>(null);
+  const [tenantToDelete, setTenantToDelete] = useState<any>(null);
+  
+  const tenants = useLiveQuery(() => dbLocal.tenants.toArray()) || [];
+
   const [newTenant, setNewTenant] = useState({ 
     name: '', 
     company: '', 
@@ -48,20 +52,16 @@ export default function Tenants() {
     activityType: '' 
   });
 
-  useEffect(() => {
-    return subscribeCollection<Tenant>('tenants', setTenants);
-  }, []);
-
   const handleAddTenant = async () => {
     if (!newTenant.name) {
       toast.error('Le nom du locataire est obligatoire');
       return;
     }
     try {
-      await addDocument('tenants', newTenant);
+      await DataService.add('tenants', newTenant);
       setNewTenant({ name: '', company: '', manager: '', phone: '', email: '', activityType: '' });
       setIsDialogOpen(false);
-      toast.success('Locataire ajouté avec succès');
+      toast.success('Locataire ajouté avec succès (Sauvegardé localement)');
     } catch (e) {
       toast.error('Erreur lors de l\'ajout du locataire');
     }
@@ -70,7 +70,7 @@ export default function Tenants() {
   const handleDeleteTenant = async () => {
     if (!tenantToDelete) return;
     try {
-      await deleteDocument('tenants', tenantToDelete);
+      await DataService.delete('tenants', tenantToDelete);
       toast.success('Locataire supprimé avec succès');
       setTenantToDelete(null);
     } catch (e) {

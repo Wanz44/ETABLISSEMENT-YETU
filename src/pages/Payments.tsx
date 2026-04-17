@@ -27,16 +27,24 @@ import {
   TableHeader, 
   TableRow 
 } from '../components/ui/table';
-import { subscribeCollection, addDocument, updateDocument } from '../lib/firestore';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { dbLocal } from '../lib/db';
+import { DataService } from '../lib/data';
 import { Payment, Invoice, Tenant } from '../types';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 export default function Payments() {
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const data = useLiveQuery(async () => {
+    return {
+      payments: await dbLocal.payments.toArray(),
+      invoices: await dbLocal.invoices.toArray(),
+      tenants: await dbLocal.tenants.toArray(),
+    };
+  }) || { payments: [], invoices: [], tenants: [] };
+
+  const { payments, invoices, tenants } = data;
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newPayment, setNewPayment] = useState({
@@ -47,25 +55,13 @@ export default function Payments() {
     reference: ''
   });
 
-  useEffect(() => {
-    const unsubPayments = subscribeCollection<Payment>('payments', setPayments);
-    const unsubInvoices = subscribeCollection<Invoice>('invoices', setInvoices);
-    const unsubTenants = subscribeCollection<Tenant>('tenants', setTenants);
-    
-    return () => {
-      unsubPayments();
-      unsubInvoices();
-      unsubTenants();
-    };
-  }, []);
-
   const handleAddPayment = async () => {
     const invoice = invoices.find(i => i.id === newPayment.invoiceId);
     if (!invoice || !newPayment.amount) return;
 
     try {
       const paymentDate = new Date().toISOString();
-      await addDocument('payments', {
+      await DataService.add('payments', {
         ...newPayment,
         tenantId: invoice.tenantId,
         date: paymentDate
@@ -75,13 +71,13 @@ export default function Payments() {
       const newAmountPaid = invoice.amountPaid + newPayment.amount;
       const newStatus = newAmountPaid >= invoice.totalAmount ? 'paid' : 'partial';
       
-      await updateDocument('invoices', invoice.id, {
+      await DataService.update('invoices', invoice.id, {
         amountPaid: newAmountPaid,
         status: newStatus
       });
 
       setIsDialogOpen(false);
-      toast.success('Paiement enregistré avec succès');
+      toast.success('Paiement enregistré avec succès (Local-First)');
     } catch (e) {
       toast.error('Erreur lors de l\'enregistrement du paiement');
     }

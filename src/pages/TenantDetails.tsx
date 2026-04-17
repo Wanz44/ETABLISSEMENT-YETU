@@ -22,7 +22,8 @@ import {
   TableRow 
 } from '../components/ui/table';
 import { Badge } from '../components/ui/badge';
-import { subscribeCollection, getDocument } from '../lib/firestore';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { dbLocal } from '../lib/db';
 import { Tenant, Invoice, Payment, Unit } from '../types';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -30,37 +31,11 @@ import { fr } from 'date-fns/locale';
 export default function TenantDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [tenant, setTenant] = useState<Tenant | null>(null);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [units, setUnits] = useState<Unit[]>([]);
-
-  useEffect(() => {
-    if (!id) return;
-
-    const fetchTenant = async () => {
-      const data = await getDocument<Tenant>('tenants', id);
-      setTenant(data);
-    };
-
-    fetchTenant();
-
-    const unsubInvoices = subscribeCollection<Invoice>('invoices', (data) => {
-      setInvoices(data.filter(inv => inv.tenantId === id).sort((a, b) => b.year - a.year || b.month - a.month));
-    });
-
-    const unsubPayments = subscribeCollection<Payment>('payments', (data) => {
-      setPayments(data.filter(p => p.tenantId === id).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-    });
-
-    const unsubUnits = subscribeCollection<Unit>('units', setUnits);
-
-    return () => {
-      unsubInvoices();
-      unsubPayments();
-      unsubUnits();
-    };
-  }, [id]);
+  
+  const tenant = useLiveQuery(() => id ? dbLocal.tenants.get(id) : Promise.resolve(null), [id]);
+  const invoices = useLiveQuery(() => id ? dbLocal.invoices.where('tenantId').equals(id).reverse().sortBy('year').then(data => data.sort((a, b) => b.year - a.year || b.month - a.month)) : Promise.resolve([]), [id]) || [];
+  const payments = useLiveQuery(() => id ? dbLocal.payments.where('tenantId').equals(id).reverse().sortBy('date') : Promise.resolve([]), [id]) || [];
+  const units = useLiveQuery(() => dbLocal.units.toArray()) || [];
 
   if (!tenant) return null;
 
