@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { 
   Database, 
   Download, 
@@ -115,6 +116,10 @@ const LocalDatabase = () => {
                 <span>Dernière synchro</span>
                 <span className="font-mono">{lastSync ? new Date(lastSync).toLocaleString('fr-FR') : 'Jamais'}</span>
               </div>
+              <div className="flex justify-between text-xs items-center">
+                <span>Chiffrement PII</span>
+                <Badge className="bg-emerald-500/20 text-emerald-600 border-none px-1.5 py-0 h-4 text-[9px]">Actif Pro</Badge>
+              </div>
               <div className="flex justify-between text-xs">
                 <span>Moteur de stockage</span>
                 <span className="px-2 py-0.5 bg-primary/20 text-primary rounded-full text-[10px] font-bold uppercase tracking-wider">IndexedDB Pro</span>
@@ -218,6 +223,15 @@ const LocalDatabase = () => {
             </h4>
             <p className="text-xs text-muted-foreground leading-relaxed">
               Exportez vos données au format JSON standard pour une utilisation dans Excel, d'autres outils d'analyse ou pour archivage externe.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <h4 className="font-semibold flex items-center gap-2">
+              <Download className="w-4 h-4 text-primary" />
+              Sauvegarde Automatisée
+            </h4>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Le système propose des rappels de sauvegarde périodiques et une indexation avancée pour garantir l'intégrité de vos actifs immobiliers.
             </p>
           </div>
         </CardContent>

@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { 
   TrendingUp, 
+  TrendingDown,
   Users, 
   Building2, 
   ArrowUpRight,
@@ -9,7 +10,6 @@ import {
   FileText,
   Receipt,
   Bell,
-  Wrench,
   Zap,
   PieChart,
   ShieldCheck,
@@ -41,27 +41,27 @@ export default function Dashboard() {
       tenants: await dbLocal.tenants.toArray(),
       units: await dbLocal.units.toArray(),
       payments: await dbLocal.payments.toArray(),
-      notifications: await dbLocal.notifications.orderBy('date').reverse().limit(4).toArray(),
-      activeTickets: await dbLocal.maintenance.where('status').anyOf(['pending', 'in_progress']).toArray()
+      expenses: await dbLocal.expenses.toArray(),
+      notifications: await dbLocal.notifications.orderBy('date').reverse().limit(4).toArray()
     };
-  }) || { invoices: [], tenants: [], units: [], payments: [], notifications: [], activeTickets: [] };
+  }) || { invoices: [], tenants: [], units: [], payments: [], expenses: [], notifications: [] };
 
-  const { invoices, tenants, units, payments, notifications, activeTickets } = data;
+  const { invoices, tenants, units, payments, expenses, notifications } = data;
 
   const stats = useMemo(() => {
     const totalRevenue = payments.reduce((acc, p) => acc + p.amount, 0);
     const totalUnpaid = invoices.reduce((acc, inv) => acc + (inv.totalAmount - inv.amountPaid), 0);
-    const totalTenants = tenants.length;
+    const totalExpenses = expenses.reduce((acc, e) => acc + e.amount, 0);
     const occupiedUnits = units.filter(u => u.status === 'occupied').length;
     const occupancyRate = units.length > 0 ? Math.round((occupiedUnits / units.length) * 100) : 0;
 
     return {
       totalRevenue,
       totalUnpaid,
-      occupancyRate,
-      totalTenants
+      totalExpenses,
+      occupancyRate
     };
-  }, [invoices, tenants, units, payments]);
+  }, [invoices, tenants, units, payments, expenses]);
 
   const revenueData = useMemo(() => {
     const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin'];
@@ -82,16 +82,6 @@ export default function Dashboard() {
           <Link to="/analytics">
             <Button variant="outline" className="rounded-2xl border-primary/20 hover:bg-primary/5 text-primary font-bold">
               <PieChart className="w-4 h-4 mr-2" /> Analyses Pro
-            </Button>
-          </Link>
-          <Link to="/maintenance">
-            <Button variant="secondary" className="rounded-2xl font-bold relative">
-              <Wrench className="w-4 h-4 mr-2" /> Maintenance
-              {activeTickets.length > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white text-[10px] flex items-center justify-center rounded-full border-2 border-background animate-pulse">
-                  {activeTickets.length}
-                </span>
-              )}
             </Button>
           </Link>
         </div>
@@ -123,11 +113,11 @@ export default function Dashboard() {
           color="bg-blue-600"
         />
         <StatCard 
-          title="Total Locataires" 
-          value={stats.totalTenants.toString()} 
-          trend="+3" 
-          trendUp={true}
-          icon={Users}
+          title="Dépenses Globales" 
+          value={`${stats.totalExpenses.toLocaleString()} $`} 
+          trend="+1.2%" 
+          trendUp={false}
+          icon={TrendingDown}
           color="bg-violet-600"
         />
       </div>

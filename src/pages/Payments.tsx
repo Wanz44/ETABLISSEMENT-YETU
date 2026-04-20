@@ -202,16 +202,21 @@ export default function Payments() {
   };
 
   const exportToExcel = () => {
-    const dataToExport = payments.map(p => {
+    const dataToExport = filteredPayments.map(p => {
       const tenant = tenants.find(t => t.id === p.tenantId);
+      const invoice = invoices.find(i => i.id === p.invoiceId);
+      
       return {
-        'S/N': p.serialNumber,
+        'S/N Paiement': p.serialNumber,
         'Date': format(new Date(p.date), 'dd/MM/yyyy HH:mm'),
-        'Locataire': tenant?.name,
+        'Locataire': tenant?.name || 'N/A',
+        'Entreprise': tenant?.company || 'N/A',
         'Montant': p.amount,
         'Devise': p.currency,
         'Méthode': p.method.replace('_', ' ').toUpperCase(),
-        'Référence': p.reference
+        'Référence': p.reference || '-',
+        'N° Facture': invoice?.invoiceNumber || '-',
+        'Période Facturée': invoice ? `${months[invoice.month - 1]} ${invoice.year}` : '-'
       };
     });
 
@@ -220,9 +225,14 @@ export default function Payments() {
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Paiements');
     const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
     const dataBlob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
-    saveAs(dataBlob, `Paiements_Yetu_${format(new Date(), 'dd_MM_yyyy')}.xlsx`);
-    toast.success('Export Excel terminé');
+    saveAs(dataBlob, `Paiements_Yetu_Filtres_${format(new Date(), 'dd_MM_yyyy')}.xlsx`);
+    toast.success(`${filteredPayments.length} paiements exportés.`);
   };
+
+  const months = [
+    'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+    'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
+  ];
 
   const stats = getStats();
 

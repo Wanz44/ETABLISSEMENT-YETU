@@ -43,6 +43,8 @@ export interface Tenant {
   phone: string;
   email: string;
   activityType: string;
+  additionalInfo?: string;
+  createdAt?: string;
 }
 
 export interface Contract {

@@ -2,7 +2,6 @@ import { dbLocal } from './db';
 
 /**
  * DataService: Provides a unified API for Local (IndexedDB) storage.
- * Updated to be Local-First ONLY as requested.
  */
 export const DataService = {
   /**
@@ -10,7 +9,6 @@ export const DataService = {
    */
   async add(path: string, data: any) {
     try {
-      // Save to Local DB (Instant)
       const localId = await (dbLocal as any)[path].add(data);
       return localId;
     } catch (error) {
@@ -24,7 +22,6 @@ export const DataService = {
    */
   async update(path: string, id: any, data: Partial<any>) {
     try {
-      // Update Local
       await (dbLocal as any)[path].update(id, data);
     } catch (error) {
       console.error(`Error updating ${path}/${id}:`, error);

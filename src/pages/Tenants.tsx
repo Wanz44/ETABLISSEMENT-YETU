@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Users, Search, MoreVertical, Edit, Trash2, Phone, Mail, Briefcase, Eye } from 'lucide-react';
+import { Plus, Users, Search, MoreVertical, Edit, Trash2, Phone, Mail, Briefcase, Eye, CheckCircle2 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { 
@@ -41,7 +41,14 @@ export default function Tenants() {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [tenantToDelete, setTenantToDelete] = useState<any>(null);
   
-  const tenants = useLiveQuery(() => dbLocal.tenants.toArray()) || [];
+  const data = useLiveQuery(async () => {
+    return {
+      tenants: await dbLocal.tenants.toArray(),
+      contracts: await dbLocal.contracts.toArray()
+    };
+  }) || { tenants: [], contracts: [] };
+
+  const { tenants, contracts } = data;
 
   const [newTenant, setNewTenant] = useState({ 
     name: '', 
@@ -49,7 +56,8 @@ export default function Tenants() {
     manager: '', 
     phone: '', 
     email: '', 
-    activityType: '' 
+    activityType: '',
+    additionalInfo: ''
   });
 
   const handleAddTenant = async () => {
@@ -58,10 +66,21 @@ export default function Tenants() {
       return;
     }
     try {
-      await DataService.add('tenants', newTenant);
-      setNewTenant({ name: '', company: '', manager: '', phone: '', email: '', activityType: '' });
+      await DataService.add('tenants', {
+        ...newTenant,
+        createdAt: new Date().toISOString()
+      });
+      setNewTenant({ 
+        name: '', 
+        company: '', 
+        manager: '', 
+        phone: '', 
+        email: '', 
+        activityType: '',
+        additionalInfo: ''
+      });
       setIsDialogOpen(false);
-      toast.success('Locataire ajouté avec succès (Sauvegardé localement)');
+      toast.success('Locataire enregistré avec succès');
     } catch (e) {
       toast.error('Erreur lors de l\'ajout du locataire');
     }
@@ -149,6 +168,16 @@ export default function Tenants() {
                   placeholder="ex: Restaurant, Boutique de mode..."
                 />
               </div>
+              <div className="grid gap-2">
+                <Label htmlFor="info">Informations Complémentaires</Label>
+                <textarea 
+                  id="info"
+                  className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  value={newTenant.additionalInfo}
+                  onChange={(e) => setNewTenant({...newTenant, additionalInfo: e.target.value})}
+                  placeholder="Notes, historique, ou besoins spécifiques..."
+                />
+              </div>
             </div>
             <DialogFooter>
               <Button onClick={handleAddTenant}>Enregistrer</Button>
@@ -176,37 +205,52 @@ export default function Tenants() {
               <TableHead>Locataire</TableHead>
               <TableHead>Contact</TableHead>
               <TableHead>Activité</TableHead>
+              <TableHead>Statut Contrat</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredTenants.map((tenant) => (
-              <TableRow key={tenant.id}>
-                <TableCell>
-                  <div>
-                    <p className="font-medium">{tenant.name}</p>
-                    <p className="text-xs text-muted-foreground">{tenant.company}</p>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="space-y-1">
-                    <div className="flex items-center text-xs text-muted-foreground">
-                      <Phone className="w-3 h-3 mr-2" />
-                      {tenant.phone}
+            {filteredTenants.map((tenant) => {
+              const hasActiveContract = contracts.some(c => c.tenantId === tenant.id && c.status === 'active');
+              
+              return (
+                <TableRow key={tenant.id}>
+                  <TableCell>
+                    <div>
+                      <p className="font-medium">{tenant.name}</p>
+                      <p className="text-xs text-muted-foreground">{tenant.company}</p>
                     </div>
-                    <div className="flex items-center text-xs text-muted-foreground">
-                      <Mail className="w-3 h-3 mr-2" />
-                      {tenant.email}
+                  </TableCell>
+                  <TableCell>
+                    <div className="space-y-1">
+                      <div className="flex items-center text-xs text-muted-foreground">
+                        <Phone className="w-3 h-3 mr-2" />
+                        {tenant.phone}
+                      </div>
+                      <div className="flex items-center text-xs text-muted-foreground">
+                        <Mail className="w-3 h-3 mr-2" />
+                        {tenant.email}
+                      </div>
                     </div>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center text-sm">
-                    <Briefcase className="w-4 h-4 mr-2 text-muted-foreground" />
-                    {tenant.activityType}
-                  </div>
-                </TableCell>
-                <TableCell className="text-right">
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center text-sm">
+                      <Briefcase className="w-4 h-4 mr-2 text-muted-foreground" />
+                      {tenant.activityType}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {hasActiveContract ? (
+                      <div className="flex items-center text-emerald-600 text-xs font-bold bg-emerald-50 px-2 py-1 rounded-full w-fit">
+                        <CheckCircle2 className="w-3 h-3 mr-1" /> Actif
+                      </div>
+                    ) : (
+                      <div className="flex items-center text-amber-600 text-xs font-bold bg-amber-50 px-2 py-1 rounded-full w-fit">
+                         Aucun actif
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger render={
                       <Button variant="ghost" size="icon">
@@ -230,8 +274,9 @@ export default function Tenants() {
                   </DropdownMenu>
                 </TableCell>
               </TableRow>
-            ))}
-            {filteredTenants.length === 0 && (
+            );
+          })}
+          {filteredTenants.length === 0 && (
               <TableRow>
                 <TableCell colSpan={4} className="text-center py-12">
                   <div className="flex flex-col items-center text-muted-foreground">

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Building2, MapPin, MoreVertical, Edit, Trash2, Home } from 'lucide-react';
+import { Plus, Building2, MapPin, MoreVertical, Edit, Trash2, Home, Search, LayoutGrid } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { 
@@ -53,6 +53,7 @@ export default function Centers() {
 
   const { centers, buildings, units } = data;
   
+  const [searchTerm, setSearchTerm] = useState('');
   const [isCenterDialogOpen, setIsCenterDialogOpen] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{id: any, type: 'centers' | 'buildings' | 'units', name: string} | null>(null);
@@ -143,6 +144,25 @@ export default function Centers() {
       toast.error('Erreur lors de la suppression');
     }
   };
+
+  const filteredCenters = centers.filter(c => 
+    c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    c.location.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const filteredBuildings = buildings.filter(b => {
+    const center = centers.find(c => c.id === b.centerId);
+    return b.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           center?.name.toLowerCase().includes(searchTerm.toLowerCase());
+  });
+
+  const filteredUnits = units.filter(u => {
+    const building = buildings.find(b => b.id === u.buildingId);
+    const center = centers.find(c => c.id === u.centerId);
+    return u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           building?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           center?.name.toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   return (
     <div className="space-y-8">
@@ -355,6 +375,18 @@ export default function Centers() {
         </div>
       </div>
 
+      <div className="flex items-center gap-4">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input 
+            placeholder="Rechercher par nom, localisation ou immeuble..." 
+            className="pl-10 rounded-xl"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+      </div>
+
       <Tabs defaultValue="centers" className="w-full">
         <TabsList className="grid w-full grid-cols-3 max-w-md">
           <TabsTrigger value="centers">Centres</TabsTrigger>
@@ -364,7 +396,7 @@ export default function Centers() {
 
         <TabsContent value="centers" className="mt-6">
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {centers.map((center) => (
+            {filteredCenters.map((center) => (
               <Card key={center.id} className="overflow-hidden group">
                 <CardHeader className="pb-4">
                   <div className="flex items-start justify-between">
@@ -430,7 +462,7 @@ export default function Centers() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {buildings.map((building) => (
+                {filteredBuildings.map((building) => (
                   <TableRow key={building.id}>
                     <TableCell className="font-medium">{building.name}</TableCell>
                     <TableCell>{centers.find(c => c.id === building.centerId)?.name}</TableCell>
@@ -477,7 +509,7 @@ export default function Centers() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {units.map((unit) => (
+                {filteredUnits.map((unit) => (
                   <TableRow key={unit.id}>
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">

@@ -44,6 +44,7 @@ import { fr } from 'date-fns/locale';
 import { Printer, FileSpreadsheet, Zap } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 
 export default function Invoices() {
   const data = useLiveQuery(async () => {
@@ -70,6 +71,7 @@ export default function Invoices() {
   const [invoiceToPrint, setInvoiceToPrint] = useState<Invoice | null>(null);
 
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
+  const [isPrintConfirmOpen, setIsPrintConfirmOpen] = useState(false);
   const [bulkConfig, setBulkConfig] = useState({
     month: new Date().getMonth() + 1,
     year: new Date().getFullYear(),
@@ -174,7 +176,13 @@ export default function Invoices() {
   };
 
   const handlePrint = (invoice: Invoice) => {
-    setInvoiceToPrint(invoice);
+    setSelectedInvoice(invoice);
+    setIsPrintConfirmOpen(true);
+  };
+
+  const confirmPrint = () => {
+    if (!selectedInvoice) return;
+    setInvoiceToPrint(selectedInvoice);
     setTimeout(() => {
       window.print();
     }, 100);
@@ -716,6 +724,16 @@ export default function Invoices() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <ConfirmDialog 
+          open={isPrintConfirmOpen}
+          onOpenChange={setIsPrintConfirmOpen}
+          title="Confirmer l'impression"
+          description="Êtes-vous sûr de vouloir lancer l'impression de cette facture ?"
+          confirmText="Imprimer"
+          variant="default"
+          onConfirm={confirmPrint}
+        />
       </div>
 
       {/* Invoice Print View */}
