@@ -93,6 +93,14 @@ export interface Payment {
   method: 'cash' | 'mobile_money' | 'bank';
   reference: string;
   serialNumber: string;
+  bankName?: string;
+  phoneNumber?: string;
+}
+
+export interface AppSettings {
+  id: string;
+  dashboardResetDate: string;
+  lastBackupDate?: string;
 }
 
 export interface Expense {

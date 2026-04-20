@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Users, Search, MoreVertical, Edit, Trash2, Phone, Mail, Briefcase, Eye, CheckCircle2 } from 'lucide-react';
+import { Plus, Users, Search, MoreVertical, Edit, Trash2, Phone, Mail, Briefcase, Eye, CheckCircle2, Receipt } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { 
@@ -21,12 +21,8 @@ import {
   TableHeader, 
   TableRow 
 } from '../components/ui/table';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
-} from '../components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../components/ui/dropdown-menu';
+import { Badge } from '../components/ui/badge';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { dbLocal } from '../lib/db';
 import { DataService } from '../lib/data';
@@ -41,14 +37,19 @@ export default function Tenants() {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [tenantToDelete, setTenantToDelete] = useState<any>(null);
   
+  const [editingTenantId, setEditingTenantId] = useState<any>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [selectedTenantDetails, setSelectedTenantDetails] = useState<Tenant | null>(null);
+  
   const data = useLiveQuery(async () => {
     return {
       tenants: await dbLocal.tenants.toArray(),
-      contracts: await dbLocal.contracts.toArray()
+      contracts: await dbLocal.contracts.toArray(),
+      invoices: await dbLocal.invoices.toArray()
     };
-  }) || { tenants: [], contracts: [] };
+  }) || { tenants: [], contracts: [], invoices: [] };
 
-  const { tenants, contracts } = data;
+  const { tenants, contracts, invoices } = data;
 
   const [newTenant, setNewTenant] = useState({ 
     name: '', 
@@ -60,16 +61,23 @@ export default function Tenants() {
     additionalInfo: ''
   });
 
-  const handleAddTenant = async () => {
+  const handleSaveTenant = async () => {
     if (!newTenant.name) {
       toast.error('Le nom du locataire est obligatoire');
       return;
     }
     try {
-      await DataService.add('tenants', {
-        ...newTenant,
-        createdAt: new Date().toISOString()
-      });
+      if (editingTenantId) {
+        await DataService.update('tenants', editingTenantId, newTenant);
+        toast.success('Locataire mis à jour avec succès');
+      } else {
+        await DataService.add('tenants', {
+          ...newTenant,
+          createdAt: new Date().toISOString()
+        });
+        toast.success('Locataire enregistré avec succès');
+      }
+      
       setNewTenant({ 
         name: '', 
         company: '', 
@@ -79,11 +87,30 @@ export default function Tenants() {
         activityType: '',
         additionalInfo: ''
       });
+      setEditingTenantId(null);
       setIsDialogOpen(false);
-      toast.success('Locataire enregistré avec succès');
     } catch (e) {
-      toast.error('Erreur lors de l\'ajout du locataire');
+      toast.error('Erreur lors de l\'enregistrement');
     }
+  };
+
+  const openEditDialog = (tenant: Tenant) => {
+    setEditingTenantId(tenant.id);
+    setNewTenant({
+      name: tenant.name,
+      company: tenant.company || '',
+      manager: tenant.manager || '',
+      phone: tenant.phone || '',
+      email: tenant.email || '',
+      activityType: tenant.activityType || '',
+      additionalInfo: tenant.additionalInfo || ''
+    });
+    setIsDialogOpen(true);
+  };
+
+  const openDetails = (tenant: Tenant) => {
+    setSelectedTenantDetails(tenant);
+    setIsDetailsOpen(true);
   };
 
   const handleDeleteTenant = async () => {
@@ -110,16 +137,22 @@ export default function Tenants() {
           <p className="text-muted-foreground">Gérez vos clients et l'historique de leurs activités.</p>
         </div>
         
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) setEditingTenantId(null);
+        }}>
           <DialogTrigger render={
-            <Button>
+            <Button onClick={() => {
+              setNewTenant({ name: '', company: '', manager: '', phone: '', email: '', activityType: '', additionalInfo: '' });
+              setEditingTenantId(null);
+            }}>
               <Plus className="w-4 h-4 mr-2" />
               Nouveau Locataire
             </Button>
           } />
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
-              <DialogTitle>Ajouter un Locataire</DialogTitle>
+              <DialogTitle>{editingTenantId ? 'Modifier le Locataire' : 'Ajouter un Locataire'}</DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-2 gap-4">
@@ -180,11 +213,89 @@ export default function Tenants() {
               </div>
             </div>
             <DialogFooter>
-              <Button onClick={handleAddTenant}>Enregistrer</Button>
+              <Button onClick={handleSaveTenant}>{editingTenantId ? 'Sauvegarder les modifications' : 'Enregistrer'}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Details Dialog */}
+      <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+        <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
+          {selectedTenantDetails && (
+            <div className="flex flex-col max-h-[85vh]">
+              <div className="bg-primary p-6 text-primary-foreground">
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md">
+                    <Users className="w-8 h-8" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold">{selectedTenantDetails.name}</h2>
+                    <p className="opacity-80">{selectedTenantDetails.company || 'Compte Personnel'}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground italic">Email</Label>
+                    <p className="text-sm font-medium">{selectedTenantDetails.email || 'N/A'}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground italic">Téléphone</Label>
+                    <p className="text-sm font-medium">{selectedTenantDetails.phone || 'N/A'}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground italic">Activité</Label>
+                    <p className="text-sm font-medium">{selectedTenantDetails.activityType || 'N/A'}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground italic">Inscrit le</Label>
+                    <p className="text-sm font-medium">{new Date(selectedTenantDetails.createdAt).toLocaleDateString()}</p>
+                  </div>
+                </div>
+
+                {selectedTenantDetails.additionalInfo && (
+                  <div className="p-4 bg-muted/30 rounded-2xl border border-muted/50">
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground italic mb-2 block">Informations Complémentaires</Label>
+                    <p className="text-xs leading-relaxed text-muted-foreground italic">"{selectedTenantDetails.additionalInfo}"</p>
+                  </div>
+                )}
+
+                <div className="space-y-4">
+                  <h3 className="font-bold border-b pb-2 flex items-center">
+                    <Receipt className="w-4 h-4 mr-2" /> Historique récent des factures
+                  </h3>
+                  <div className="space-y-2">
+                    {invoices.filter(inv => inv.tenantId === selectedTenantDetails.id).slice(0, 5).map(inv => (
+                      <div key={inv.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/20 border border-muted/20 hover:bg-muted/40 transition-colors">
+                        <div>
+                          <p className="text-xs font-bold">{inv.invoiceNumber || `Facture #${String(inv.id).slice(0, 4).toUpperCase()}`}</p>
+                          <p className="text-[9px] text-muted-foreground">{new Date(inv.createdAt).toLocaleDateString()}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs font-bold">{inv.totalAmount} {inv.currency}</p>
+                          <p className={`text-[9px] font-bold ${inv.status === 'paid' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                            {inv.status.toUpperCase()}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                    {invoices.filter(inv => inv.tenantId === selectedTenantDetails.id).length === 0 && (
+                      <p className="text-center text-xs text-muted-foreground py-4 italic">Aucun historique de facturation trouvé.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="p-6 border-t bg-muted/10 flex justify-end">
+                <Button variant="outline" onClick={() => setIsDetailsOpen(false)} className="rounded-xl">Fermer</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <div className="flex items-center gap-4">
         <div className="relative flex-1 max-w-md">
@@ -258,10 +369,10 @@ export default function Tenants() {
                       </Button>
                     } />
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => navigate(`/tenants/${tenant.id}`)}>
+                      <DropdownMenuItem onClick={() => openDetails(tenant)}>
                         <Eye className="w-4 h-4 mr-2" /> Voir Détails
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => openEditDialog(tenant)}>
                         <Edit className="w-4 h-4 mr-2" /> Modifier
                       </DropdownMenuItem>
                       <DropdownMenuItem className="text-destructive" onClick={() => {

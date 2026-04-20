@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import { Center, Building, Unit, Tenant, Contract, Invoice, Payment, Expense, MaintenanceTicket, AppNotification } from '../types';
+import { Center, Building, Unit, Tenant, Contract, Invoice, Payment, Expense, MaintenanceTicket, AppNotification, AppSettings } from '../types';
 
 import { cryptoUtils } from './crypto';
 
@@ -16,10 +16,11 @@ export class AppDatabase extends Dexie {
   expenses!: Table<Expense>;
   maintenance!: Table<MaintenanceTicket>;
   notifications!: Table<AppNotification>;
+  settings!: Table<AppSettings>;
 
   constructor() {
     super('YetuLocalDB');
-    this.version(4).stores({
+    this.version(5).stores({
       centers: '++id, name, location',
       buildings: '++id, centerId, name',
       units: '++id, buildingId, centerId, name, status',
@@ -29,7 +30,8 @@ export class AppDatabase extends Dexie {
       payments: '++id, invoiceId, tenantId, date, serialNumber',
       expenses: '++id, category, centerId, date',
       maintenance: '++id, unitId, centerId, status, priority',
-      notifications: '++id, type, date, read'
+      notifications: '++id, type, date, read',
+      settings: 'id'
     });
 
     // Add hooks for encryption/decryption

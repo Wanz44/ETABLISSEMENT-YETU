@@ -59,8 +59,10 @@ export default function Payments() {
     invoiceId: '',
     amount: 0,
     currency: 'USD' as const,
-    method: 'cash' as const,
-    reference: ''
+    method: 'cash' as 'cash' | 'mobile_money' | 'bank',
+    reference: '',
+    phoneNumber: '',
+    bankName: ''
   });
 
   const handleAddPayment = async () => {
@@ -153,6 +155,8 @@ export default function Payments() {
         ['Facture Réf.', invoice?.invoiceNumber || 'N/A'],
         ['Méthode', payment.method.replace('_', ' ').toUpperCase()],
         ['Référence Client', payment.reference || 'N/A'],
+        ...(payment.method === 'mobile_money' ? [['N° Téléphone', payment.phoneNumber || 'N/A']] as any : []),
+        ...(payment.method === 'bank' ? [['Banque', payment.bankName || 'N/A']] as any : []),
       ],
       theme: 'grid',
       headStyles: { fillColor: [41, 128, 185], textColor: 255 },
@@ -337,16 +341,43 @@ export default function Payments() {
                   </div>
                 </div>
 
-                <div className="grid gap-2">
-                  <Label htmlFor="ref">Référence / N° Reçu</Label>
-                  <Input 
-                    id="ref" 
-                    value={newPayment.reference}
-                    onChange={(e) => setNewPayment({...newPayment, reference: e.target.value})}
-                    placeholder="ex: M-PESA Ref, N° Bordereau..."
-                  />
+                  <div className="grid gap-2">
+                    <Label htmlFor="ref">Référence / Identifiant Transaction</Label>
+                    <Input 
+                      id="ref" 
+                      value={newPayment.reference}
+                      onChange={(e) => setNewPayment({...newPayment, reference: e.target.value})}
+                      placeholder={
+                        newPayment.method === 'mobile_money' ? 'ex: PP2203...' : 
+                        newPayment.method === 'bank' ? 'ex: BORD-001...' : 'N° Reçu manuel'
+                      }
+                    />
+                  </div>
+
+                  {newPayment.method === 'mobile_money' && (
+                    <div className="grid gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                      <Label htmlFor="phone">Numéro de téléphone payeur</Label>
+                      <Input 
+                        id="phone" 
+                        value={newPayment.phoneNumber}
+                        onChange={(e) => setNewPayment({...newPayment, phoneNumber: e.target.value})}
+                        placeholder="ex: +243..."
+                      />
+                    </div>
+                  )}
+
+                  {newPayment.method === 'bank' && (
+                    <div className="grid gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                      <Label htmlFor="bank">Nom de la banque / Agence</Label>
+                      <Input 
+                        id="bank" 
+                        value={newPayment.bankName}
+                        onChange={(e) => setNewPayment({...newPayment, bankName: e.target.value})}
+                        placeholder="ex: Equity BCDC..."
+                      />
+                    </div>
+                  )}
                 </div>
-              </div>
               <DialogFooter>
                 <Button onClick={handleAddPayment}>Confirmer le paiement</Button>
               </DialogFooter>

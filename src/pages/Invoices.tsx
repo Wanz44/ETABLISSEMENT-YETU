@@ -67,6 +67,8 @@ export default function Invoices() {
   const [paymentAmount, setPaymentAmount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mobile_money' | 'bank'>('cash');
   const [paymentRef, setPaymentRef] = useState('');
+  const [paymentPhone, setPaymentPhone] = useState('');
+  const [paymentBank, setPaymentBank] = useState('');
 
   const [invoiceToPrint, setInvoiceToPrint] = useState<Invoice | null>(null);
 
@@ -193,13 +195,19 @@ export default function Invoices() {
 
     try {
       const paymentDate = new Date().toISOString();
+      const serialNumber = `PAY-${Date.now().toString().slice(-8)}-${Math.floor(1000 + Math.random() * 9000)}`;
+      
       await DataService.add('payments', {
         invoiceId: selectedInvoice.id,
         tenantId: selectedInvoice.tenantId,
         amount: paymentAmount,
+        currency: selectedInvoice.currency || 'USD',
         date: paymentDate,
         method: paymentMethod,
-        reference: paymentRef
+        reference: paymentRef,
+        serialNumber,
+        phoneNumber: paymentPhone,
+        bankName: paymentBank
       });
 
       const newAmountPaid = selectedInvoice.amountPaid + paymentAmount;
@@ -223,7 +231,8 @@ export default function Invoices() {
     year: new Date().getFullYear(),
     amountWater: 0,
     amountElectricity: 0,
-    dueDate: format(new Date(), 'yyyy-MM-dd')
+    dueDate: format(new Date(), 'yyyy-MM-dd'),
+    currency: 'USD' as 'USD' | 'CDF'
   });
 
   const handleGenerateInvoice = async () => {
@@ -412,14 +421,28 @@ export default function Invoices() {
                     </div>
                   </div>
 
-                  <div className="grid gap-2">
-                    <Label htmlFor="dueDate">Date d'échéance</Label>
-                    <Input 
-                      id="dueDate" 
-                      type="date" 
-                      value={newInvoice.dueDate}
-                      onChange={(e) => setNewInvoice({...newInvoice, dueDate: e.target.value})}
-                    />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="dueDate">Date d'échéance</Label>
+                      <Input 
+                        id="dueDate" 
+                        type="date" 
+                        value={newInvoice.dueDate}
+                        onChange={(e) => setNewInvoice({...newInvoice, dueDate: e.target.value})}
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label>Devise</Label>
+                      <Select value={newInvoice.currency} onValueChange={(val: any) => setNewInvoice({...newInvoice, currency: val})}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="USD">USD ($)</SelectItem>
+                          <SelectItem value="CDF">CDF (FC)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
                 <DialogFooter>
@@ -714,9 +737,36 @@ export default function Invoices() {
                   id="qRef" 
                   value={paymentRef}
                   onChange={(e) => setPaymentRef(e.target.value)}
-                  placeholder="N° Reçu, Ref..."
+                  placeholder={
+                    paymentMethod === 'mobile_money' ? 'Ref transaction...' : 
+                    paymentMethod === 'bank' ? 'Ref bordereau...' : 'N° reçu'
+                  }
                 />
               </div>
+
+              {paymentMethod === 'mobile_money' && (
+                <div className="grid gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                  <Label htmlFor="qPhone">Téléphone Payeur</Label>
+                  <Input 
+                    id="qPhone" 
+                    value={paymentPhone}
+                    onChange={(e) => setPaymentPhone(e.target.value)}
+                    placeholder="+243..."
+                  />
+                </div>
+              )}
+
+              {paymentMethod === 'bank' && (
+                <div className="grid gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                  <Label htmlFor="qBank">Banque</Label>
+                  <Input 
+                    id="qBank" 
+                    value={paymentBank}
+                    onChange={(e) => setPaymentBank(e.target.value)}
+                    placeholder="Nom de la banque..."
+                  />
+                </div>
+              )}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsPaymentOpen(false)}>Annuler</Button>

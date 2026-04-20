@@ -13,9 +13,11 @@ import {
   Zap,
   PieChart,
   ShieldCheck,
-  Clock
+  Clock,
+  RefreshCw
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
+import { Badge } from '../components/ui/badge';
 import { 
   BarChart, 
   Bar, 
@@ -34,19 +36,43 @@ import { fr } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 
+import { toast } from 'sonner';
+
 export default function Dashboard() {
   const data = useLiveQuery(async () => {
+    const settings = await dbLocal.settings.get('main');
+    const resetDate = settings?.dashboardResetDate ? new Date(settings.dashboardResetDate) : new Date(0);
+
+    const invoices = await dbLocal.invoices.toArray();
+    const payments = await dbLocal.payments.toArray();
+    const expenses = await dbLocal.expenses.toArray();
+
     return {
-      invoices: await dbLocal.invoices.toArray(),
+      settings,
+      invoices: invoices.filter(inv => new Date(inv.createdAt) >= resetDate),
       tenants: await dbLocal.tenants.toArray(),
       units: await dbLocal.units.toArray(),
-      payments: await dbLocal.payments.toArray(),
-      expenses: await dbLocal.expenses.toArray(),
+      payments: payments.filter(p => new Date(p.date) >= resetDate),
+      expenses: expenses.filter(e => new Date(e.date) >= resetDate),
       notifications: await dbLocal.notifications.orderBy('date').reverse().limit(4).toArray()
     };
-  }) || { invoices: [], tenants: [], units: [], payments: [], expenses: [], notifications: [] };
+  }) || { invoices: [], tenants: [], units: [], payments: [], expenses: [], notifications: [], settings: null };
 
-  const { invoices, tenants, units, payments, expenses, notifications } = data;
+  const { invoices, tenants, units, payments, expenses, notifications, settings } = data;
+
+  const handleResetDashboard = async () => {
+    if (confirm('Réinitialiser les compteurs du tableau de bord pour un nouveau cycle ? Les données historiques ne seront pas supprimées.')) {
+      try {
+        await dbLocal.settings.put({
+          id: 'main',
+          dashboardResetDate: new Date().toISOString()
+        });
+        toast.success('Le tableau de bord a été réinitialisé pour un nouveau cycle.');
+      } catch (e) {
+        toast.error('Erreur lors de la réinitialisation');
+      }
+    }
+  };
 
   const stats = useMemo(() => {
     const totalRevenue = payments.reduce((acc, p) => acc + p.amount, 0);
@@ -76,9 +102,23 @@ export default function Dashboard() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h2 className="text-4xl font-black tracking-tighter text-foreground">Tableau de bord</h2>
-          <p className="text-muted-foreground font-medium">Pilotage stratégique de l'Établissement YETU.</p>
+          <div className="flex items-center gap-2 text-muted-foreground font-medium">
+            <p>Pilotage stratégique de l'Établissement YETU.</p>
+            {settings?.dashboardResetDate && (
+              <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200 ml-2">
+                <Clock className="w-3 h-3 mr-1" /> Cycle depuis le {new Date(settings.dashboardResetDate).toLocaleDateString()}
+              </Badge>
+            )}
+          </div>
         </div>
         <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={handleResetDashboard}
+            className="rounded-2xl border-amber-200 hover:bg-amber-50 text-amber-700 font-bold"
+          >
+            <RefreshCw className="w-4 h-4 mr-2" /> Réinitialiser le cycle
+          </Button>
           <Link to="/analytics">
             <Button variant="outline" className="rounded-2xl border-primary/20 hover:bg-primary/5 text-primary font-bold">
               <PieChart className="w-4 h-4 mr-2" /> Analyses Pro
