@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Receipt, Calendar, DollarSign, MoreVertical, Download, Send, AlertCircle, CheckCircle2, Eye } from 'lucide-react';
+import { Plus, Receipt, Calendar, DollarSign, MoreVertical, Download, Send, AlertCircle, CheckCircle2, Eye, Edit } from 'lucide-react';
 import { Button } from '../components/ui/button';
+import { cn } from '../lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { dbLocal } from '../lib/db';

@@ -13,9 +13,12 @@ import {
   Briefcase,
   Layers,
   Info,
-  ShieldCheck
+  ShieldCheck,
+  Download,
+  Search
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
+import { cn } from '../lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { 
   Dialog, 
@@ -57,6 +60,8 @@ import { Contract, Tenant, Unit, Center } from '../types';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export default function Contracts() {
   const data = useLiveQuery(async () => {
@@ -175,6 +180,123 @@ export default function Contracts() {
     const term = searchTerm.toLowerCase();
     return (tenant?.name?.toLowerCase().includes(term) || unit?.name?.toLowerCase().includes(term));
   });
+
+  const getContractTypeLabel = (type: string) => {
+    switch (type) {
+      case 'commercial': return 'Commercial';
+      case 'professional': return 'Professionnel';
+      case 'residential': return 'Résidentiel';
+      default: return type;
+    }
+  };
+
+  const generateContractPDF = (contract: Contract) => {
+    const tenant = tenants.find(t => t.id === contract.tenantId);
+    const unit = units.find(u => u.id === contract.unitId);
+    const center = centers.find(c => c.id === contract.centerId);
+
+    const doc = new jsPDF();
+    
+    // Header
+    doc.setFillColor(31, 41, 55); // Dark gray
+    doc.rect(0, 0, 210, 40, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(24);
+    doc.setFont('helvetica', 'bold');
+    doc.text('CONTRAT DE BAIL', 105, 20, { align: 'center' });
+    
+    doc.setFontSize(10);
+    doc.text(`Réf: ${String(contract.id).toUpperCase().slice(0, 8)}`, 105, 30, { align: 'center' });
+
+    // Parties
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(14);
+    doc.text('PARTIES CONTRACTANTES', 20, 55);
+    doc.line(20, 57, 80, 57);
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('BAILLEUR:', 20, 65);
+    doc.setFont('helvetica', 'normal');
+    doc.text('YETU ADMIN / GESTION IMMOBILIERE', 60, 65);
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('PRENEUR (LOCATAIRE):', 20, 75);
+    doc.setFont('helvetica', 'normal');
+    doc.text(tenant?.name || 'N/A', 60, 75);
+    if (tenant?.company) {
+      doc.text(`Entreprise: ${tenant.company}`, 60, 80);
+    }
+    doc.text(`Contact: ${tenant?.phone || 'N/A'} / ${tenant?.email || 'N/A'}`, 60, 85);
+
+    // Objet
+    doc.setFontSize(14);
+    doc.text('OBJET DU BAIL', 20, 100);
+    doc.line(20, 102, 60, 102);
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('CENTRE:', 20, 110);
+    doc.setFont('helvetica', 'normal');
+    doc.text(center?.name || 'N/A', 60, 110);
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('UNITE (LOCAL):', 20, 120);
+    doc.setFont('helvetica', 'normal');
+    doc.text(unit?.name || 'N/A', 60, 120);
+    doc.text(`Type: ${unit?.type || 'N/A'} - Niveau: ${unit?.floor || 'N/A'}`, 60, 125);
+
+    // Terms
+    doc.setFontSize(14);
+    doc.text('CONDITIONS FINANCIERES ET DUREE', 20, 140);
+    doc.line(20, 142, 95, 142);
+
+    autoTable(doc, {
+      startY: 150,
+      head: [['Désignation', 'Détails']],
+      body: [
+        ['Date d\'effet', format(new Date(contract.startDate), 'dd MMMM yyyy', { locale: fr })],
+        ['Date d\'échéance', contract.endDate ? format(new Date(contract.endDate), 'dd MMMM yyyy', { locale: fr }) : 'Indéterminée'],
+        ['Loyer Mensuel', `${contract.rentAmount.toLocaleString()} ${contract.currency}`],
+        ['Garantie Locative', `${contract.depositAmount} Mois`],
+        ['Type de Bail', getContractTypeLabel(contract.type)],
+        ['Statut', contract.status.toUpperCase()],
+        ['Charges', contract.chargesIncluded ? 'Incluses dans le loyer' : 'Non incluses']
+      ],
+      theme: 'striped',
+      headStyles: { fillColor: [31, 41, 55], textColor: [255, 255, 255] },
+      styles: { fontSize: 9 }
+    });
+
+    // Notes
+    if (contract.notes) {
+      const finalY = (doc as any).lastAutoTable.finalY || 200;
+      doc.setFontSize(12);
+      doc.text('OBSERVATIONS PARTICULIERES', 20, finalY + 15);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'italic');
+      const splitNotes = doc.splitTextToSize(contract.notes, 170);
+      doc.text(splitNotes, 20, finalY + 25);
+    }
+
+    // Signatures
+    const pageHeight = doc.internal.pageSize.height;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('POUR LE BAILLEUR', 40, pageHeight - 40);
+    doc.text('POUR LE PRENEUR', 140, pageHeight - 40);
+    
+    doc.setFont('helvetica', 'normal');
+    doc.text('(Signature précédée de la mention', 30, pageHeight - 30);
+    doc.text('"Lu et Approuvé")', 45, pageHeight - 25);
+    
+    doc.text('(Signature précédée de la mention', 130, pageHeight - 30);
+    doc.text('"Lu et Approuvé")', 145, pageHeight - 25);
+
+    doc.save(`Contrat_${tenant?.name?.replace(/\s/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`);
+    toast.success('Document contractuel généré');
+  };
 
   return (
     <div className="space-y-8 pb-20">
@@ -504,7 +626,7 @@ export default function Contracts() {
                         <DropdownMenuItem onClick={() => handleResiliate(contract.id, contract.unitId)} disabled={contract.status === 'terminated'} className="text-destructive rounded-xl cursor-pointer font-bold gap-3 py-2.5">
                           <Trash2 className="w-4 h-4 mr-2" /> Prononcer Résiliation
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="rounded-xl cursor-pointer font-bold gap-3 py-2.5 underline underline-offset-4 decoration-primary/20">
+                        <DropdownMenuItem onClick={() => generateContractPDF(contract)} className="rounded-xl cursor-pointer font-bold gap-3 py-2.5 underline underline-offset-4 decoration-primary/20">
                           <Download className="w-4 h-4 mr-2" /> Édition PDF
                         </DropdownMenuItem>
                       </DropdownMenuContent>

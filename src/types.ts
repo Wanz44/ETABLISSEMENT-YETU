@@ -43,6 +43,9 @@ export interface Tenant {
   phone: string;
   email: string;
   activityType: string;
+  address: string;
+  idNumber: string;
+  legalStatus: 'particular' | 'company';
   additionalInfo?: string;
   createdAt?: string;
 }

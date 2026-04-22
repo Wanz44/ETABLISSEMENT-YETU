@@ -42,6 +42,8 @@ import { Center, Building, Unit } from '../types';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
+import { cn } from '../lib/utils';
+
 export default function Centers() {
   const data = useLiveQuery(async () => {
     return {
@@ -55,6 +57,8 @@ export default function Centers() {
   
   const [searchTerm, setSearchTerm] = useState('');
   const [isCenterDialogOpen, setIsCenterDialogOpen] = useState(false);
+  const [isBuildingDialogOpen, setIsBuildingDialogOpen] = useState(false);
+  const [isUnitDialogOpen, setIsUnitDialogOpen] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{id: any, type: 'centers' | 'buildings' | 'units', name: string} | null>(null);
   
