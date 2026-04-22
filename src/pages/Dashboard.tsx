@@ -75,8 +75,8 @@ export default function Dashboard() {
     <div className="space-y-10 pb-10">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h2 className="text-4xl font-black tracking-tighter text-foreground">Tableau de bord</h2>
-          <p className="text-muted-foreground font-medium">Pilotage stratégique de l'Établissement YETU.</p>
+          <h2 className="text-3xl font-bold tracking-tight text-[#1A1F36]">Portail Institutionnel</h2>
+          <p className="text-sm text-muted-foreground font-medium mt-1">Vue d'ensemble de la santé financière du parc immobilier.</p>
         </div>
         <div className="flex gap-2">
           <Link to="/analytics">
@@ -124,19 +124,25 @@ export default function Dashboard() {
 
       <div className="grid gap-8 lg:grid-cols-7">
         <div className="lg:col-span-4 space-y-8">
-           <Card className="rounded-[2.5rem] border-none shadow-2xl shadow-foreground/5 bg-card overflow-hidden">
-            <CardHeader className="p-8">
+           <Card className="rounded-2xl border border-[#E1E5EB] bg-white shadow-sm overflow-hidden">
+            <CardHeader className="p-8 border-b border-[#F3F5F8]">
               <div className="flex justify-between items-center">
                 <div>
-                  <CardTitle className="text-2xl font-black">Flux de Trésorerie</CardTitle>
-                  <CardDescription>Performance mensuelle des encaissements.</CardDescription>
+                  <CardTitle className="text-xl font-bold text-[#1A1F36]">Flux de Trésorerie Institutionnel</CardTitle>
+                  <CardDescription className="text-xs">Performance consolidée des encaissements par exercice mensuel.</CardDescription>
                 </div>
-                <div className="p-3 bg-primary/10 rounded-2xl">
-                  <TrendingUp className="w-6 h-6 text-primary" />
+                <div className="flex items-center gap-4">
+                   <div className="flex items-center gap-2">
+                     <div className="w-3 h-3 rounded-full bg-primary"></div>
+                     <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Actuel</span>
+                   </div>
+                   <div className="p-2 bg-muted rounded-lg">
+                      <PieChart className="w-4 h-4 text-muted-foreground" />
+                   </div>
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="px-6 pb-8">
+            <CardContent className="p-8">
               <div className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={revenueData}>
@@ -209,31 +215,34 @@ export default function Dashboard() {
         </div>
 
         <div className="lg:col-span-3 space-y-8">
-          <Card className="rounded-[2.5rem] border-none shadow-xl shadow-foreground/5 bg-card overflow-hidden">
-            <CardHeader className="pb-4">
+          <Card className="rounded-2xl border border-[#E1E5EB] bg-white shadow-sm overflow-hidden">
+            <CardHeader className="pb-4 border-b border-[#F3F5F8]">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-xl font-black">Encaissements</CardTitle>
-                <Link to="/payments" className="text-[10px] font-black uppercase text-primary hover:underline">Voir Tout</Link>
+                <div>
+                  <CardTitle className="text-lg font-bold text-[#1A1F36]">Flux Récents</CardTitle>
+                  <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Opérations de Trésorerie</p>
+                </div>
+                <Link to="/payments" className="text-[10px] font-black uppercase text-primary hover:underline hover:translate-x-1 transition-transform inline-flex items-center gap-1">Gestion <ArrowUpRight className="w-3 h-3" /></Link>
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                {payments.slice(0, 4).map((payment, i) => {
+            <CardContent className="pt-6">
+              <div className="space-y-5">
+                {payments.slice(0, 5).map((payment, i) => {
                   const tenant = tenants.find(t => t.id === payment.tenantId);
                   return (
-                    <div key={i} className="flex items-center group cursor-pointer">
-                      <div className={cn("w-12 h-12 rounded-2xl bg-muted flex items-center justify-center text-emerald-500 shrink-0 group-hover:bg-emerald-500 group-hover:text-white transition-all duration-300")}>
-                        <CreditCard className="w-5 h-5" />
+                    <div key={i} className="flex items-center group cursor-pointer border-b border-[#F3F5F8] last:border-0 pb-4 last:pb-0">
+                      <div className={cn("w-10 h-10 rounded-lg bg-[#F8F9FB] flex items-center justify-center text-primary shrink-0 group-hover:bg-primary group-hover:text-white transition-all")}>
+                        <CreditCard className="w-4 h-4" />
                       </div>
                       <div className="ml-4 flex-1 min-w-0">
-                        <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{tenant?.name || 'Locataire'}</p>
-                        <p className="text-[10px] text-muted-foreground font-semibold flex items-center gap-1">
-                          <Clock className="w-3 h-3" /> {format(new Date(payment.date), 'dd MMMM yyyy', { locale: fr })}
+                        <p className="text-sm font-bold text-[#1A1F36] truncate">{tenant?.name || 'Client Institutionnel'}</p>
+                        <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tighter">
+                          {format(new Date(payment.date), 'dd MMM yyyy', { locale: fr })}
                         </p>
                       </div>
                       <div className="text-right ml-2">
-                        <p className="text-sm font-black text-emerald-600">+{payment.amount} $</p>
-                        <p className="text-[9px] font-mono text-muted-foreground opacity-60 italic">{payment.serialNumber.slice(-8)}</p>
+                        <p className="text-sm font-bold text-emerald-600">+{payment.amount} $</p>
+                        <p className="text-[9px] font-mono font-medium text-muted-foreground uppercase opacity-50 tracking-tighter">REF-{String(payment.id).slice(0, 5).toUpperCase()}</p>
                       </div>
                     </div>
                   );
@@ -293,24 +302,27 @@ export default function Dashboard() {
 
 function StatCard({ title, value, icon: Icon, trend, trendUp, color }: any) {
   return (
-    <Card className="rounded-[2.5rem] border-none shadow-xl shadow-foreground/5 bg-card overflow-hidden hover:scale-[1.02] transition-transform duration-300">
-      <CardContent className="p-8">
-        <div className="flex items-center justify-between">
-          <div className={cn("p-4 rounded-3xl", color, "bg-opacity-10 text-primary")}>
-             <Icon className={cn("w-6 h-6", color.replace('bg-', 'text-'))} />
+    <Card className="rounded-2xl border border-[#E1E5EB] bg-white shadow-sm hover:shadow-md transition-all duration-300 group">
+      <CardContent className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className={cn("p-2.5 rounded-lg bg-primary/5 text-primary")}>
+             <Icon className="w-5 h-5 text-primary" />
           </div>
           <div className={cn(
-            "flex items-center gap-1 text-[10px] font-black px-3 py-1.5 rounded-full uppercase tracking-tighter shadow-sm",
-            trendUp ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700 font-bold"
+            "flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-tight",
+            trendUp ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
           )}>
             {trendUp ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
             {trend}
           </div>
         </div>
-        <div className="mt-8">
-          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{title}</p>
-          <h3 className="text-3xl font-black tracking-tighter mt-1">{value}</h3>
-          <p className="text-[10px] text-muted-foreground font-semibold italic mt-1 opacity-70">En temps réel • 2026</p>
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-widest text-[#697386]">{title}</p>
+          <h3 className="text-2xl font-bold tracking-tight text-[#1A1F36] mt-0.5">{value}</h3>
+          <div className="flex items-center gap-2 mt-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-tight">Analyse Active</p>
+          </div>
         </div>
       </CardContent>
     </Card>

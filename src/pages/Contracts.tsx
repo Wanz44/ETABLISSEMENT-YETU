@@ -166,7 +166,7 @@ export default function Contracts() {
       rentAmount: contract.rentAmount || 0,
       depositAmount: contract.depositAmount || 0,
       currency: (contract.currency as any) || 'USD',
-      chargesIncluded: (contract as any).chargesIncluded || false,
+      chargesIncluded: contract.chargesIncluded || false,
       status: (contract.status as any) || 'active',
       type: (contract.type as any) || 'commercial',
       notes: (contract as any).notes || ''
@@ -451,6 +451,21 @@ export default function Contracts() {
                 </div>
               </div>
 
+              <div className="flex items-center space-x-3 p-5 bg-primary/5 rounded-2xl border-2 border-dashed border-primary/20 shadow-sm transition-all hover:bg-primary/10">
+                <Checkbox 
+                  id="charges-inc" 
+                  checked={newContract.chargesIncluded}
+                  onCheckedChange={(val) => setNewContract({...newContract, chargesIncluded: !!val})}
+                  className="w-6 h-6 rounded-md border-2 border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
+                />
+                <div className="grid gap-0.5 leading-none">
+                  <Label htmlFor="charges-inc" className="text-[11px] font-black uppercase tracking-tight text-foreground cursor-pointer flex items-center gap-2">
+                    Inclusion des Charges Forfaitaires
+                  </Label>
+                  <p className="text-[10px] text-muted-foreground font-medium italic">Eau et électricité sont intégrées dans la redevance locative principale.</p>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-6 pt-4">
                  <div className="grid gap-2">
                     <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Monnaie Transactionnelle</Label>
@@ -485,17 +500,6 @@ export default function Contracts() {
               </div>
 
               <div className="grid gap-4 border-t pt-8">
-                <div className="flex items-center space-x-3 p-4 bg-muted/20 rounded-2xl border border-muted/50 shadow-inner">
-                  <Checkbox 
-                    id="charges-inc" 
-                    checked={newContract.chargesIncluded}
-                    onCheckedChange={(val) => setNewContract({...newContract, chargesIncluded: !!val})}
-                    className="w-5 h-5 rounded-md border-2 border-primary"
-                  />
-                  <Label htmlFor="charges-inc" className="text-xs font-black uppercase tracking-tight text-foreground cursor-pointer">
-                    Intégrer les charges forfaitaires (Eau/Élec) dans le loyer principal
-                  </Label>
-                </div>
                 <div className="grid gap-2">
                   <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Stipulations & Observations</Label>
                   <textarea 

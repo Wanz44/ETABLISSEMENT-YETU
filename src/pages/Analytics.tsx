@@ -137,12 +137,12 @@ export default function Analytics() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2 rounded-[2rem] border-none shadow-xl shadow-foreground/5 bg-card overflow-hidden">
-          <CardHeader>
-            <CardTitle>Revenus vs Dépenses</CardTitle>
-            <CardDescription>Comparaison mensuelle pour l'année en cours.</CardDescription>
+        <Card className="lg:col-span-2 rounded-2xl border border-[#E1E5EB] bg-white shadow-sm overflow-hidden">
+          <CardHeader className="border-b border-[#F3F5F8] p-6">
+            <CardTitle className="text-lg font-bold text-[#1A1F36]">Revenus vs Dépenses Institutionnelles</CardTitle>
+            <CardDescription className="text-xs">Analyse comparative des flux monétaires consolidés par exercice mensuel.</CardDescription>
           </CardHeader>
-          <CardContent className="h-[300px] mt-2">
+          <CardContent className="h-[320px] p-8">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={data.monthlyData}>
                 <defs>
@@ -168,12 +168,12 @@ export default function Analytics() {
           </CardContent>
         </Card>
 
-        <Card className="rounded-[2rem] border-none shadow-xl shadow-foreground/5 bg-card overflow-hidden">
-          <CardHeader>
-            <CardTitle>Occupation</CardTitle>
-            <CardDescription>Répartition par statut des unités.</CardDescription>
+        <Card className="rounded-2xl border border-[#E1E5EB] bg-white shadow-sm overflow-hidden">
+          <CardHeader className="border-b border-[#F3F5F8] p-6">
+            <CardTitle className="text-lg font-bold text-[#1A1F36]">Statut d'Occupation</CardTitle>
+            <CardDescription className="text-xs">Répartition structurelle du parc immobilier par état des unités.</CardDescription>
           </CardHeader>
-          <CardContent className="h-[300px] flex items-center justify-center">
+          <CardContent className="h-[320px] flex items-center justify-center p-6">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -207,12 +207,12 @@ export default function Analytics() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="rounded-[2rem] border-none shadow-xl shadow-foreground/5 bg-card">
-          <CardHeader>
-            <CardTitle>Facturation vs Encaissements</CardTitle>
-            <CardDescription>Efficacité du recouvrement par mois.</CardDescription>
+        <Card className="rounded-2xl border border-[#E1E5EB] bg-white shadow-sm overflow-hidden">
+          <CardHeader className="border-b border-[#F3F5F8] p-6">
+            <CardTitle className="text-lg font-bold text-[#1A1F36]">Recouvrement vs Facturation</CardTitle>
+            <CardDescription className="text-xs">Efficacité opérationnelle du recouvrement des créances locatives.</CardDescription>
           </CardHeader>
-          <CardContent className="h-[300px]">
+          <CardContent className="h-[320px] p-8">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data.monthlyData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.5} />
@@ -228,12 +228,12 @@ export default function Analytics() {
           </CardContent>
         </Card>
 
-        <Card className="rounded-[2rem] border-none shadow-xl shadow-foreground/5 bg-card">
-          <CardHeader>
-            <CardTitle>Croissance des Revenus</CardTitle>
-            <CardDescription>Tendance linéaire des paiements.</CardDescription>
+        <Card className="rounded-2xl border border-[#E1E5EB] bg-white shadow-sm overflow-hidden">
+          <CardHeader className="border-b border-[#F3F5F8] p-6">
+            <CardTitle className="text-lg font-bold text-[#1A1F36]">Projection de Croissance</CardTitle>
+            <CardDescription className="text-xs">Tendance linéaire consolidée de la performance des revenus.</CardDescription>
           </CardHeader>
-          <CardContent className="h-[300px]">
+          <CardContent className="h-[320px] p-8">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={data.monthlyData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.5} />
@@ -254,24 +254,24 @@ export default function Analytics() {
 
 function MetricCard({ title, value, subValue, icon: Icon, trend, positive = true }: any) {
   return (
-    <Card className="rounded-[2rem] border-none shadow-xl shadow-foreground/5 bg-card overflow-hidden hover:scale-[1.02] transition-transform duration-300">
+    <Card className="rounded-2xl border border-[#E1E5EB] bg-white shadow-sm hover:shadow-md transition-all duration-300">
       <CardContent className="p-6">
         <div className="flex justify-between items-start">
-          <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
-            <Icon className="w-6 h-6" />
+          <div className="w-10 h-10 rounded-lg bg-primary/5 flex items-center justify-center text-primary">
+            <Icon className="w-5 h-5" />
           </div>
           <div className={cn(
-            "flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full",
-            positive ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
+            "flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-tight",
+            positive ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
           )}>
             {positive ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
             {Math.abs(trend)}%
           </div>
         </div>
-        <div className="mt-4">
-          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">{title}</p>
-          <h3 className="text-3xl font-black mt-1">{value}</h3>
-          <p className="text-[10px] text-muted-foreground mt-1 font-medium italic">{subValue}</p>
+        <div className="mt-6">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-[#697386]">{title}</p>
+          <h3 className="text-2xl font-bold tracking-tight text-[#1A1F36] mt-1">{value}</h3>
+          <p className="text-[10px] text-muted-foreground mt-1 font-medium">{subValue}</p>
         </div>
       </CardContent>
     </Card>

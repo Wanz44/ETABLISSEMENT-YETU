@@ -38,13 +38,13 @@ export interface Unit {
 export interface Tenant {
   id: string;
   name: string;
-  company: string;
-  manager: string;
-  phone: string;
-  email: string;
-  activityType: string;
-  address: string;
-  idNumber: string;
+  company?: string;
+  manager?: string;
+  phone?: string;
+  email?: string;
+  activityType?: string;
+  address?: string;
+  idNumber?: string;
   legalStatus: 'particular' | 'company';
   additionalInfo?: string;
   createdAt?: string;

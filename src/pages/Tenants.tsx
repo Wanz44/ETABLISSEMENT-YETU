@@ -75,10 +75,13 @@ export default function Tenants() {
   });
 
   const handleSaveTenant = async () => {
-    if (!newTenant.name || (newTenant.legalStatus === 'company' && !newTenant.company)) {
-      toast.error('Veuillez remplir les informations obligatoires (Nom/Entreprise)');
+    // Basic validation: Name is always required. 
+    // If company, name represents the manager/contact person.
+    if (!newTenant.name) {
+      toast.error('Le nom du locataire ou du gérant est obligatoire');
       return;
     }
+
     try {
       if (editingTenantId) {
         await DataService.update('tenants', editingTenantId, newTenant);
@@ -165,6 +168,7 @@ export default function Tenants() {
                 onClick={() => {
                   setNewTenant({ name: '', company: '', manager: '', phone: '', email: '', activityType: '', address: '', idNumber: '', legalStatus: 'particular', additionalInfo: '' });
                   setEditingTenantId(null);
+                  setIsDialogOpen(true);
                 }}
                 className="rounded-xl font-black h-11 px-6 shadow-lg shadow-primary/20 active:scale-95 transition-all"
             >
@@ -208,13 +212,13 @@ export default function Tenants() {
 
               <div className="grid grid-cols-2 gap-4 border-t pt-6">
                 <div className="grid gap-2">
-                  <Label htmlFor="name" className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Nom & Prénom / Gérant</Label>
+                  <Label htmlFor="name" className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Nom complet / Mandataire (*)</Label>
                   <Input 
                     id="name" 
                     value={newTenant.name} 
                     onChange={(e) => setNewTenant({...newTenant, name: e.target.value})} 
                     className="rounded-xl h-12 border-2 bg-muted/30 font-black"
-                    placeholder="Nom complet"
+                    placeholder="Obligatoire"
                   />
                 </div>
                 <div className="grid gap-2">

@@ -215,8 +215,8 @@ export default function Centers() {
     <div className="space-y-8 pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-4xl font-black tracking-tighter text-foreground">Gestion des Biens</h2>
-          <p className="text-muted-foreground font-medium">Architecture immobilière : Centres, Immeubles & Unités.</p>
+          <h2 className="text-3xl font-bold tracking-tight text-[#1A1F36]">Infrastructures & Patrimoine</h2>
+          <p className="text-sm text-muted-foreground font-medium mt-1">Gouvernance de l'architecture immobilière (Centres, Immeubles, Unités).</p>
         </div>
         
         <div className="flex flex-wrap gap-2">
@@ -458,18 +458,18 @@ export default function Centers() {
         </div>
       </div>
 
-      <div className="flex flex-col md:flex-row items-center gap-4 bg-muted/20 p-4 rounded-3xl border border-muted/50">
+      <div className="flex flex-col md:flex-row items-center gap-4 bg-white p-4 rounded-2xl border border-[#E1E5EB] shadow-sm">
         <div className="relative flex-1 w-full">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8792A2]" />
           <Input 
-            placeholder="Rechercher à travers le patrimoine..." 
-            className="pl-12 h-12 rounded-2xl border-none bg-white shadow-sm ring-1 ring-black/5"
+            placeholder="Rechercher une infrastructure ou une unité..." 
+            className="pl-11 h-11 rounded-xl border-[#E1E5EB] bg-[#F8F9FA] focus:bg-white transition-all"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <div className="flex items-center gap-2 p-1 bg-white/50 rounded-2xl shadow-inner border w-full md:w-auto">
-          <Badge variant="ghost" className="rounded-xl px-4 py-2 font-bold text-xs uppercase tracking-tighter">Filtre Actif: Aucun</Badge>
+        <div className="flex items-center gap-2 px-4 h-11 bg-[#F8F9FA] rounded-xl border border-[#E1E5EB] w-full md:w-auto">
+          <Badge variant="ghost" className="rounded-lg px-2 font-bold text-[10px] uppercase tracking-widest text-[#697386]">Audité en temps réel</Badge>
         </div>
       </div>
 
@@ -483,11 +483,11 @@ export default function Centers() {
         <TabsContent value="centers" className="mt-6 animate-in slide-in-from-bottom-2 duration-300">
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {filteredCenters.map((center) => (
-              <Card key={center.id} className="overflow-hidden border-none shadow-lg shadow-black/5 rounded-3xl group hover:shadow-xl transition-all duration-300 bg-white">
-                <CardHeader className="pb-4">
+              <Card key={center.id} className="overflow-hidden border border-[#E1E5EB] shadow-sm rounded-2xl group hover:shadow-md transition-all duration-300 bg-white">
+                <CardHeader className="pb-4 border-b border-[#F3F5F8]">
                   <div className="flex items-start justify-between">
-                    <div className="p-3 bg-primary/10 rounded-2xl group-hover:bg-primary group-hover:text-white transition-colors duration-300">
-                      <Building2 className="w-6 h-6 text-primary group-hover:text-white" />
+                    <div className="p-2.5 bg-primary/5 rounded-xl group-hover:bg-primary transition-colors duration-300">
+                      <Building2 className="w-5 h-5 text-primary group-hover:text-white" />
                     </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger render={
@@ -508,20 +508,20 @@ export default function Centers() {
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
-                  <CardTitle className="mt-4 text-2xl font-black tracking-tighter uppercase">{center.name}</CardTitle>
-                  <div className="flex items-center text-xs font-bold text-muted-foreground mt-1 uppercase tracking-widest italic opacity-70">
-                    <MapPin className="w-3 h-3 mr-1" />
+                  <h4 className="mt-4 text-xl font-bold text-[#1A1F36] tracking-tight truncate">{center.name}</h4>
+                  <div className="flex items-center text-[10px] font-bold text-[#697386] mt-1 uppercase tracking-widest">
+                    <MapPin className="w-3 h-3 mr-1 text-primary" />
                     {center.location}
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex justify-between items-center p-3 bg-muted/20 rounded-2xl">
-                    <span className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Immeubles</span>
-                    <span className="font-black text-primary">{buildings.filter(b => b.centerId === center.id).length}</span>
+                <CardContent className="space-y-3 pt-6">
+                  <div className="flex justify-between items-center p-3.5 bg-[#F8F9FA] rounded-xl border border-[#E1E5EB]">
+                    <span className="text-[10px] font-bold uppercase text-[#697386] tracking-widest">Immeubles audités</span>
+                    <span className="font-bold text-[#1A1F36]">{buildings.filter(b => b.centerId === center.id).length}</span>
                   </div>
-                  <div className="flex justify-between items-center p-3 bg-muted/20 rounded-2xl">
-                    <span className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Unités en gestion</span>
-                    <span className="font-black text-primary">{units.filter(u => u.centerId === center.id).length}</span>
+                  <div className="flex justify-between items-center p-3.5 bg-[#F8F9FA] rounded-xl border border-[#E1E5EB]">
+                    <span className="text-[10px] font-bold uppercase text-[#697386] tracking-widest">Unités répertoriées</span>
+                    <span className="font-bold text-[#1A1F36]">{units.filter(u => u.centerId === center.id).length}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -536,37 +536,37 @@ export default function Centers() {
         </TabsContent>
 
         <TabsContent value="buildings" className="mt-6 animate-in slide-in-from-bottom-2 duration-300">
-          <Card className="rounded-[2rem] border-none shadow-xl overflow-hidden p-0">
+          <Card className="rounded-2xl border border-[#E1E5EB] bg-white shadow-sm overflow-hidden p-0">
             <Table>
-              <TableHeader className="bg-muted/50 border-none">
-                <TableRow className="border-none">
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest pl-8">Désignation</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest">Centre Affilié</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-center">Unités</TableHead>
-                  <TableHead className="text-right font-black text-[10px] uppercase tracking-widest pr-8">Actions</TableHead>
+              <TableHeader className="bg-[#F8F9FA] border-b border-[#E1E5EB]">
+                <TableRow className="border-none hover:bg-transparent">
+                  <TableHead className="font-bold text-[10px] uppercase tracking-widest pl-6 text-[#697386]">Désignation Institutionnelle</TableHead>
+                  <TableHead className="font-bold text-[10px] uppercase tracking-widest text-[#697386]">Identification Centre</TableHead>
+                  <TableHead className="font-bold text-[10px] uppercase tracking-widest text-center text-[#697386]">Capacité Unités</TableHead>
+                  <TableHead className="text-right font-bold text-[10px] uppercase tracking-widest pr-6 text-[#697386]">Gouvernance</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredBuildings.map((building) => (
-                  <TableRow key={building.id} className="hover:bg-muted/10 border-none transition-colors">
-                    <TableCell className="font-black text-lg py-6 pl-8 tracking-tighter">
+                  <TableRow key={building.id} className="hover:bg-[#F8F9FA]/50 border-b border-[#F3F5F8] last:border-0 transition-colors">
+                    <TableCell className="font-bold text-base py-5 pl-6 tracking-tight text-[#1A1F36]">
                       <div className="flex items-center gap-3">
-                        <div className="w-2 h-2 rounded-full bg-primary" />
+                        <div className="w-1.5 h-6 bg-primary/20 rounded-full" />
                         {building.name}
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="rounded-xl px-4 py-1.5 font-bold uppercase tracking-tighter bg-white shadow-sm italic opacity-80 border-muted">
+                      <Badge variant="outline" className="rounded-lg px-3 py-1 font-bold text-[10px] uppercase tracking-tight bg-white shadow-sm border-[#E1E5EB] text-[#4F566B]">
                         {centers.find(c => c.id === building.centerId)?.name}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-center font-black text-xl text-primary">{units.filter(u => u.buildingId === building.id).length}</TableCell>
-                    <TableCell className="text-right pr-8">
-                      <div className="flex justify-end gap-2">
+                    <TableCell className="text-center font-bold text-lg text-primary">{units.filter(u => u.buildingId === building.id).length}</TableCell>
+                    <TableCell className="text-right pr-6">
+                      <div className="flex justify-end gap-1">
                         <Button 
                           variant="ghost" 
                           size="icon" 
-                          className="w-10 h-10 rounded-xl hover:bg-primary hover:text-white transition-all active:scale-90"
+                          className="w-9 h-9 rounded-lg hover:bg-primary/5 hover:text-primary transition-all"
                           onClick={() => openEditBuilding(building)}
                         >
                           <Edit className="w-4 h-4" />
@@ -574,7 +574,7 @@ export default function Centers() {
                         <Button 
                           variant="ghost" 
                           size="icon" 
-                          className="text-destructive w-10 h-10 rounded-xl hover:bg-destructive hover:text-white transition-all active:scale-90" 
+                          className="text-rose-500 w-9 h-9 rounded-lg hover:bg-rose-50 transition-all" 
                           onClick={() => {
                             setItemToDelete({ id: building.id, type: 'buildings', name: building.name });
                             setIsConfirmOpen(true);
@@ -599,59 +599,57 @@ export default function Centers() {
         </TabsContent>
 
         <TabsContent value="units" className="mt-6 animate-in slide-in-from-bottom-2 duration-300">
-          <Card className="rounded-[2rem] border-none shadow-xl overflow-hidden p-0">
+          <Card className="rounded-2xl border border-[#E1E5EB] bg-white shadow-sm overflow-hidden p-0">
             <Table>
-              <TableHeader className="bg-muted/50 border-none">
-                <TableRow className="border-none">
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest pl-8">Unité Locative</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest">Localisation</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest">Type</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest">Statut</TableHead>
-                  <TableHead className="font-black text-[10px] uppercase tracking-widest">Étage</TableHead>
-                  <TableHead className="text-right font-black text-[10px] uppercase tracking-widest pr-8">Actions</TableHead>
+              <TableHeader className="bg-[#F8F9FA] border-b border-[#E1E5EB]">
+                <TableRow className="border-none hover:bg-transparent">
+                  <TableHead className="font-bold text-[10px] uppercase tracking-widest pl-6 text-[#697386]">Unité d'Audit</TableHead>
+                  <TableHead className="font-bold text-[10px] uppercase tracking-widest text-[#697386]">Architecture</TableHead>
+                  <TableHead className="font-bold text-[10px] uppercase tracking-widest text-[#697386]">Nature</TableHead>
+                  <TableHead className="font-bold text-[10px] uppercase tracking-widest text-[#697386]">État d'Occupation</TableHead>
+                  <TableHead className="font-bold text-[10px] uppercase tracking-widest text-[#697386]">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredUnits.map((unit) => (
-                  <TableRow key={unit.id} className="hover:bg-muted/10 border-none transition-colors">
-                    <TableCell className="font-black text-lg py-6 pl-8 tracking-tighter">
+                  <TableRow key={unit.id} className="hover:bg-[#F8F9FA]/50 border-b border-[#F3F5F8] last:border-0 transition-colors">
+                    <TableCell className="font-bold text-base py-5 pl-6 tracking-tight text-[#1A1F36]">
                       <div className="flex items-center gap-3">
                         <div className={cn(
-                          "w-10 h-10 rounded-xl flex items-center justify-center bg-muted/50 text-muted-foreground shadow-sm",
-                          unit.status === 'occupied' && "bg-primary/20 text-primary"
+                          "w-9 h-9 rounded-lg flex items-center justify-center bg-[#F8F9FA] text-[#8792A2] border border-[#E1E5EB]",
+                          unit.status === 'occupied' && "bg-primary/5 text-primary border-primary/20"
                         )}>
-                          <Home className="w-5 h-5" />
+                          <Home className="w-4 h-4" />
                         </div>
                         {unit.name}
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col">
-                        <span className="font-bold text-sm tracking-tighter">{buildings.find(b => b.id === unit.buildingId)?.name}</span>
-                        <span className="text-[10px] uppercase font-black opacity-50">{centers.find(c => c.id === unit.centerId)?.name}</span>
+                        <span className="font-bold text-xs text-[#1A1F36]">{buildings.find(b => b.id === unit.buildingId)?.name}</span>
+                        <span className="text-[9px] uppercase font-bold text-[#697386] tracking-widest tracking-tighter">{centers.find(c => c.id === unit.centerId)?.name}</span>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <span className="text-[10px] font-black uppercase tracking-widest italic">{unit.type === 'shop' ? 'Boutique/Magasin' : 'Bureau/S. Office'}</span>
+                      <span className="text-[10px] font-bold uppercase tracking-tight text-[#697386]">{unit.type === 'shop' ? 'Commercial' : 'Professionnel'}</span>
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className={cn(
-                        "rounded-full px-4 py-1 text-[10px] font-black uppercase tracking-widest shadow-sm",
-                        unit.status === 'occupied' ? "bg-emerald-500 text-white border-none" : 
-                        unit.status === 'free' ? "bg-amber-50 text-amber-600 border-amber-200" : 
-                        "bg-destructive text-white border-none"
+                        "rounded-md px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-widest",
+                        unit.status === 'occupied' ? "bg-emerald-50 text-emerald-600 border-emerald-100" : 
+                        unit.status === 'free' ? "bg-amber-50 text-amber-600 border-amber-100" : 
+                        "bg-rose-50 text-rose-600 border-rose-100"
                       )}>
                         {unit.status === 'occupied' ? 'Occupé' : 
                          unit.status === 'free' ? 'Libre' : 'Maint.'}
                       </Badge>
                     </TableCell>
-                    <TableCell className="font-bold italic text-muted-foreground">{unit.floor || '-'}</TableCell>
-                    <TableCell className="text-right pr-8">
-                      <div className="flex justify-end gap-2">
+                    <TableCell className="text-right pr-6">
+                      <div className="flex justify-end gap-1">
                         <Button 
                           variant="ghost" 
                           size="icon" 
-                          className="w-10 h-10 rounded-xl hover:bg-primary hover:text-white transition-all active:scale-90"
+                          className="w-9 h-9 font-bold rounded-lg hover:bg-primary/5 hover:text-primary transition-all"
                           onClick={() => openEditUnit(unit)}
                         >
                           <Edit className="w-4 h-4" />
@@ -659,7 +657,7 @@ export default function Centers() {
                         <Button 
                           variant="ghost" 
                           size="icon" 
-                          className="text-destructive w-10 h-10 rounded-xl hover:bg-destructive hover:text-white transition-all active:scale-90" 
+                          className="text-rose-500 w-9 h-9 rounded-lg hover:bg-rose-50 transition-all font-bold" 
                           onClick={() => {
                             setItemToDelete({ id: unit.id, type: 'units', name: unit.name });
                             setIsConfirmOpen(true);

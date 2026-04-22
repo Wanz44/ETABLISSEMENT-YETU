@@ -34,26 +34,29 @@ interface NavItemProps {
   collapsed?: boolean;
 }
 
-const NavItem: React.FC<NavItemProps> = ({ to, icon: Icon, label, active, collapsed }) => {
+  const NavItem: React.FC<NavItemProps> = ({ to, icon: Icon, label, active, collapsed }) => {
   return (
     <Link
       to={to}
       className={cn(
-        "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative",
+        "flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-200 group relative mx-2",
         active 
-          ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" 
-          : "hover:bg-muted text-muted-foreground hover:text-foreground"
+          ? "bg-primary/10 text-primary font-semibold" 
+          : "hover:bg-muted/50 text-muted-foreground hover:text-foreground"
       )}
     >
-      <Icon className={cn("w-5 h-5 shrink-0 transition-transform duration-200", !active && "group-hover:scale-110")} />
+      <Icon className={cn("w-5 h-5 shrink-0 transition-transform duration-200", active ? "text-primary" : "text-muted-foreground")} />
       {!collapsed && (
         <motion.span 
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
-          className="font-medium whitespace-nowrap"
+          className="text-[13px] font-medium whitespace-nowrap"
         >
           {label}
         </motion.span>
+      )}
+      {active && (
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full" />
       )}
       {collapsed && (
         <div className="absolute left-full ml-2 px-2 py-1 bg-popover text-popover-foreground text-xs rounded-md opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-md border">
@@ -88,23 +91,24 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   ];
 
   const SidebarContent = ({ isMobile = false }: { isMobile?: boolean }) => (
-    <div className="flex flex-col h-full py-6">
-      <div className={cn("px-6 mb-8 flex items-center justify-between", collapsed && !isMobile && "px-4 justify-center")}>
-        {!collapsed || isMobile ? (
+    <div className="flex flex-col h-full py-4">
+      <div className={cn("px-6 mb-10 flex items-center gap-3", collapsed && !isMobile && "px-4 justify-center")}>
+        <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center text-primary-foreground font-bold shadow-lg shadow-primary/20 shrink-0">
+          <ShieldCheck className="w-5 h-5" />
+        </div>
+        {(!collapsed || isMobile) && (
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="flex flex-col"
           >
-            <h1 className="text-xl font-bold text-primary tracking-tight leading-none">YETU Admin</h1>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">Gestion Immobilière</p>
+            <h1 className="text-lg font-black text-[#1A1F36] tracking-tighter leading-none">YETU <span className="text-primary italic">BANK</span></h1>
+            <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-1">Management Portal</p>
           </motion.div>
-        ) : (
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-bold">Y</div>
         )}
       </div>
 
-      <nav className={cn("flex-1 px-3 space-y-1.5", collapsed && !isMobile && "px-2")}>
+      <nav className={cn("flex-1 space-y-1", collapsed && !isMobile && "px-2")}>
         {navItems.map((item) => (
           <NavItem 
             key={item.to} 
@@ -146,19 +150,19 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <div className="flex min-h-screen bg-background font-sans selection:bg-primary/10 selection:text-primary">
+    <div className="flex min-h-screen bg-[#F3F5F8] font-sans selection:bg-primary/10 selection:text-primary">
       {/* Desktop Sidebar */}
       <aside 
         className={cn(
-          "hidden lg:flex flex-col sticky top-4 h-[calc(100vh-2rem)] my-4 ml-4 bg-card border rounded-3xl transition-all duration-300 shadow-xl shadow-foreground/5 z-40 no-print",
-          collapsed ? "w-20" : "w-64"
+          "hidden lg:flex flex-col sticky top-0 h-screen bg-white border-r transition-all duration-300 z-40 no-print shadow-[1px_0_10px_rgba(0,0,0,0.02)]",
+          collapsed ? "w-20" : "w-72"
         )}
       >
         <SidebarContent />
         <Button
           variant="secondary"
           size="icon"
-          className="absolute -right-3 top-20 w-6 h-6 rounded-full border shadow-md z-50"
+          className="absolute -right-3 top-10 w-6 h-6 rounded-full border shadow-sm z-50 bg-white hover:bg-muted"
           onClick={() => setCollapsed(!collapsed)}
         >
           {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
