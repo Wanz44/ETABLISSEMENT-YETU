@@ -57,6 +57,9 @@ export default function Centers() {
   const [isCenterDialogOpen, setIsCenterDialogOpen] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{id: any, type: 'centers' | 'buildings' | 'units', name: string} | null>(null);
+  
+  const [editingItem, setEditingItem] = useState<{id: any, type: 'centers' | 'buildings' | 'units'} | null>(null);
+
   const [newCenter, setNewCenter] = useState({ name: '', location: '', description: '' });
   const [newBuilding, setNewBuilding] = useState({ centerId: '', name: '', description: '' });
   const [newUnit, setNewUnit] = useState({ 
@@ -68,46 +71,61 @@ export default function Centers() {
     floor: '' 
   });
 
-  const [isBuildingDialogOpen, setIsBuildingDialogOpen] = useState(false);
-  const [isUnitDialogOpen, setIsUnitDialogOpen] = useState(false);
-
-  const handleAddCenter = async () => {
+  const handleSaveCenter = async () => {
     if (!newCenter.name) {
       toast.error('Le nom du centre est obligatoire');
       return;
     }
     try {
-      await DataService.add('centers', { ...newCenter, createdAt: new Date().toISOString() });
+      if (editingItem && editingItem.type === 'centers') {
+        await DataService.update('centers', editingItem.id, newCenter);
+        toast.success('Centre commercial mis à jour');
+      } else {
+        await DataService.add('centers', { ...newCenter, createdAt: new Date().toISOString() });
+        toast.success('Centre commercial ajouté avec succès');
+      }
       setNewCenter({ name: '', location: '', description: '' });
+      setEditingItem(null);
       setIsCenterDialogOpen(false);
-      toast.success('Centre commercial ajouté avec succès (Local-First)');
     } catch (e) {
-      toast.error('Erreur lors de l\'ajout du centre');
+      toast.error('Erreur lors de l\'enregistrement');
     }
   };
 
-  const handleAddBuilding = async () => {
+  const handleSaveBuilding = async () => {
     if (!newBuilding.name || !newBuilding.centerId) {
       toast.error('Veuillez remplir les champs obligatoires');
       return;
     }
     try {
-      await DataService.add('buildings', newBuilding);
+      if (editingItem && editingItem.type === 'buildings') {
+        await DataService.update('buildings', editingItem.id, newBuilding);
+        toast.success('Immeuble mis à jour');
+      } else {
+        await DataService.add('buildings', newBuilding);
+        toast.success('Immeuble ajouté avec succès');
+      }
       setNewBuilding({ centerId: '', name: '', description: '' });
+      setEditingItem(null);
       setIsBuildingDialogOpen(false);
-      toast.success('Immeuble ajouté avec succès');
     } catch (e) {
-      toast.error('Erreur lors de l\'ajout de l\'immeuble');
+      toast.error('Erreur lors de l\'enregistrement');
     }
   };
 
-  const handleAddUnit = async () => {
+  const handleSaveUnit = async () => {
     if (!newUnit.name || !newUnit.centerId || !newUnit.buildingId) {
       toast.error('Veuillez remplir les champs obligatoires');
       return;
     }
     try {
-      await DataService.add('units', newUnit);
+      if (editingItem && editingItem.type === 'units') {
+        await DataService.update('units', editingItem.id, newUnit);
+        toast.success('Unité mise à jour');
+      } else {
+        await DataService.add('units', newUnit);
+        toast.success('Unité ajoutée avec succès');
+      }
       setNewUnit({ 
         centerId: '', 
         buildingId: '', 
@@ -116,11 +134,36 @@ export default function Centers() {
         status: 'free', 
         floor: '' 
       });
+      setEditingItem(null);
       setIsUnitDialogOpen(false);
-      toast.success('Unité ajoutée avec succès');
     } catch (e) {
-      toast.error('Erreur lors de l\'ajout de l\'unité');
+      toast.error('Erreur lors de l\'enregistrement');
     }
+  };
+
+  const openEditCenter = (center: Center) => {
+    setEditingItem({ id: center.id, type: 'centers' });
+    setNewCenter({ name: center.name, location: center.location, description: center.description || '' });
+    setIsCenterDialogOpen(true);
+  };
+
+  const openEditBuilding = (building: Building) => {
+    setEditingItem({ id: building.id, type: 'buildings' });
+    setNewBuilding({ centerId: building.centerId, name: building.name, description: building.description || '' });
+    setIsBuildingDialogOpen(true);
+  };
+
+  const openEditUnit = (unit: Unit) => {
+    setEditingItem({ id: unit.id, type: 'units' });
+    setNewUnit({ 
+      centerId: unit.centerId, 
+      buildingId: unit.buildingId, 
+      name: unit.name, 
+      type: unit.type, 
+      status: unit.status, 
+      floor: unit.floor 
+    });
+    setIsUnitDialogOpen(true);
   };
 
   const handleDeleteItem = async () => {
@@ -165,30 +208,38 @@ export default function Centers() {
   });
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
+    <div className="space-y-8 pb-20">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Gestion des Biens</h2>
-          <p className="text-muted-foreground">Gérez vos centres commerciaux, immeubles et unités locatives.</p>
+          <h2 className="text-4xl font-black tracking-tighter text-foreground">Gestion des Biens</h2>
+          <p className="text-muted-foreground font-medium">Architecture immobilière : Centres, Immeubles & Unités.</p>
         </div>
         
-        <div className="flex gap-2">
-          <Dialog open={isBuildingDialogOpen} onOpenChange={setIsBuildingDialogOpen}>
+        <div className="flex flex-wrap gap-2">
+          <Dialog open={isBuildingDialogOpen} onOpenChange={(open) => {
+            setIsBuildingDialogOpen(open);
+            if (!open) { setEditingItem(null); setNewBuilding({ centerId: '', name: '', description: '' }); }
+          }}>
             <DialogTrigger render={
-              <Button variant="outline">
+              <Button variant="outline" className="rounded-xl border-2 hover:bg-muted font-bold transition-all">
                 <Plus className="w-4 h-4 mr-2" />
                 Immeuble
               </Button>
             } />
-            <DialogContent className="rounded-3xl">
-              <DialogHeader>
-                <DialogTitle>Ajouter un Immeuble</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
+            <DialogContent className="rounded-3xl border-none shadow-2xl overflow-hidden max-w-[450px] p-0">
+              <div className="bg-primary p-6 text-primary-foreground">
+                <DialogHeader>
+                  <DialogTitle className="text-xl font-black">{editingItem ? 'Modifier l\'Immeuble' : 'Nouvel Immeuble'}</DialogTitle>
+                </DialogHeader>
+              </div>
+              <div className="grid gap-6 p-8">
                 <div className="grid gap-2">
-                  <Label>Centre Commercial</Label>
-                  <Select onValueChange={(val) => setNewBuilding({...newBuilding, centerId: val})}>
-                    <SelectTrigger className="rounded-xl">
+                  <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Centre Commercial d'affectation</Label>
+                  <Select 
+                    value={newBuilding.centerId} 
+                    onValueChange={(val) => setNewBuilding({...newBuilding, centerId: val})}
+                  >
+                    <SelectTrigger className="rounded-xl h-12 border-2 bg-muted/30 focus:border-primary transition-all">
                       <SelectValue placeholder="Sélectionner un centre" />
                     </SelectTrigger>
                     <SelectContent>
@@ -199,50 +250,65 @@ export default function Centers() {
                   </Select>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="b-name">Nom de l'immeuble</Label>
+                  <Label htmlFor="b-name" className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Désignation de l'immeuble</Label>
                   <Input 
                     id="b-name" 
                     value={newBuilding.name} 
                     onChange={(e) => setNewBuilding({...newBuilding, name: e.target.value})} 
-                    placeholder="ex: Bloc A"
-                    className="rounded-xl"
+                    placeholder="ex: Bloc A, Aile Ouest..."
+                    className="rounded-xl h-12 border-2 bg-muted/30 focus:border-primary transition-all"
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="b-desc">Description</Label>
+                  <Label htmlFor="b-desc" className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Description technique</Label>
                   <Input 
                     id="b-desc" 
                     value={newBuilding.description} 
                     onChange={(e) => setNewBuilding({...newBuilding, description: e.target.value})} 
-                    className="rounded-xl"
+                    className="rounded-xl h-12 border-2 bg-muted/30 focus:border-primary transition-all"
+                    placeholder="Détails, code bâtiment..."
                   />
                 </div>
               </div>
-              <DialogFooter>
-                <Button onClick={handleAddBuilding} className="rounded-xl">Enregistrer</Button>
-              </DialogFooter>
+              <div className="p-8 pt-0 flex gap-3">
+                <Button variant="outline" className="flex-1 rounded-xl h-12 font-bold" onClick={() => setIsBuildingDialogOpen(false)}>Annuler</Button>
+                <Button onClick={handleSaveBuilding} className="flex-1 rounded-xl h-12 font-black shadow-lg shadow-primary/20 transition-all active:scale-95">
+                  {editingItem ? 'Mettre à jour' : 'Enregistrer'}
+                </Button>
+              </div>
             </DialogContent>
           </Dialog>
 
-          <Dialog open={isUnitDialogOpen} onOpenChange={setIsUnitDialogOpen}>
+          <Dialog open={isUnitDialogOpen} onOpenChange={(open) => {
+            setIsUnitDialogOpen(open);
+            if (!open) { 
+              setEditingItem(null); 
+              setNewUnit({ centerId: '', buildingId: '', name: '', type: 'shop', status: 'free', floor: '' }); 
+            }
+          }}>
             <DialogTrigger render={
-              <Button variant="outline">
+              <Button variant="outline" className="rounded-xl border-2 hover:bg-muted font-bold transition-all">
                 <Plus className="w-4 h-4 mr-2" />
                 Unité
               </Button>
             } />
-            <DialogContent className="rounded-3xl sm:max-w-[450px]">
-              <DialogHeader>
-                <DialogTitle>Ajouter une Unité Locative</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
+            <DialogContent className="rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden max-w-[500px]">
+              <div className="bg-primary p-6 text-primary-foreground">
+                <DialogHeader>
+                  <DialogTitle className="text-xl font-black">{editingItem ? 'Modifier l\'Unité' : 'Nouvelle Unité Locative'}</DialogTitle>
+                </DialogHeader>
+              </div>
+              <div className="grid gap-6 p-8">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
-                    <Label>Centre</Label>
-                    <Select onValueChange={(val) => {
-                      setNewUnit({...newUnit, centerId: val, buildingId: ''});
-                    }}>
-                      <SelectTrigger className="rounded-xl">
+                    <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Centre</Label>
+                    <Select 
+                      value={newUnit.centerId}
+                      onValueChange={(val) => {
+                        setNewUnit({...newUnit, centerId: val, buildingId: ''});
+                      }}
+                    >
+                      <SelectTrigger className="rounded-xl h-12 border-2 bg-muted/30">
                         <SelectValue placeholder="Choisir" />
                       </SelectTrigger>
                       <SelectContent>
@@ -253,12 +319,13 @@ export default function Centers() {
                     </Select>
                   </div>
                   <div className="grid gap-2">
-                    <Label>Immeuble</Label>
+                    <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Immeuble</Label>
                     <Select 
                       disabled={!newUnit.centerId}
+                      value={newUnit.buildingId}
                       onValueChange={(val) => setNewUnit({...newUnit, buildingId: val})}
                     >
-                      <SelectTrigger className="rounded-xl">
+                      <SelectTrigger className="rounded-xl h-12 border-2 bg-muted/30">
                         <SelectValue placeholder="Choisir" />
                       </SelectTrigger>
                       <SelectContent>
@@ -271,119 +338,134 @@ export default function Centers() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="u-name">Nom/Numéro Unité</Label>
+                    <Label htmlFor="u-name" className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Identifiant Unité</Label>
                     <Input 
                       id="u-name" 
                       value={newUnit.name} 
                       onChange={(e) => setNewUnit({...newUnit, name: e.target.value})} 
-                      placeholder="ex: Boutique 01"
-                      className="rounded-xl"
+                      placeholder="ex: B-01"
+                      className="rounded-xl h-12 border-2 bg-muted/30"
                     />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="u-floor">Étage</Label>
+                    <Label htmlFor="u-floor" className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Emplacement / Étage</Label>
                     <Input 
                       id="u-floor" 
                       value={newUnit.floor} 
                       onChange={(e) => setNewUnit({...newUnit, floor: e.target.value})} 
-                      placeholder="ex: RDC, 1er..."
-                      className="rounded-xl"
+                      placeholder="ex: RDC, Niveau 1"
+                      className="rounded-xl h-12 border-2 bg-muted/30"
                     />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
-                    <Label>Type d'unité</Label>
+                    <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Type</Label>
                     <Select value={newUnit.type} onValueChange={(val: any) => setNewUnit({...newUnit, type: val})}>
-                      <SelectTrigger className="rounded-xl">
+                      <SelectTrigger className="rounded-xl h-12 border-2 bg-muted/30 uppercase font-black text-[10px]">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="shop">Magasin / Boutique</SelectItem>
-                        <SelectItem value="office">Bureau</SelectItem>
+                        <SelectItem value="shop">MAGASIN / BOUTIQUE</SelectItem>
+                        <SelectItem value="office">BUREAU</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="grid gap-2">
-                    <Label>Statut initial</Label>
+                    <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Statut</Label>
                     <Select value={newUnit.status} onValueChange={(val: any) => setNewUnit({...newUnit, status: val})}>
-                      <SelectTrigger className="rounded-xl">
+                      <SelectTrigger className="rounded-xl h-12 border-2 bg-muted/30 uppercase font-black text-[10px]">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="free">Libre</SelectItem>
-                        <SelectItem value="occupied">Occupé</SelectItem>
-                        <SelectItem value="maintenance">Maintenance</SelectItem>
+                        <SelectItem value="free">LIBRE</SelectItem>
+                        <SelectItem value="occupied">OCCUPÉ</SelectItem>
+                        <SelectItem value="maintenance">MAINTENANCE</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
               </div>
-              <DialogFooter>
-                <Button onClick={handleAddUnit} className="rounded-xl">Enregistrer l'unité</Button>
-              </DialogFooter>
+              <div className="p-8 pt-0 flex gap-3">
+                <Button variant="outline" className="flex-1 rounded-xl h-12 font-bold" onClick={() => setIsUnitDialogOpen(false)}>Annuler</Button>
+                <Button onClick={handleSaveUnit} className="flex-1 rounded-xl h-12 font-black shadow-lg shadow-primary/20">
+                  {editingItem ? 'Mettre à jour' : 'Enregistrer Unité'}
+                </Button>
+              </div>
             </DialogContent>
           </Dialog>
 
-          <Dialog open={isCenterDialogOpen} onOpenChange={setIsCenterDialogOpen}>
+          <Dialog open={isCenterDialogOpen} onOpenChange={(open) => {
+            setIsCenterDialogOpen(open);
+            if (!open) { setEditingItem(null); setNewCenter({ name: '', location: '', description: '' }); }
+          }}>
             <DialogTrigger render={
-              <Button>
+              <Button className="rounded-xl shadow-lg shadow-primary/20 font-black h-11 px-6 active:scale-95 transition-all">
                 <Plus className="w-4 h-4 mr-2" />
                 Centre
               </Button>
             } />
-            <DialogContent className="rounded-3xl">
-              <DialogHeader>
-                <DialogTitle>Ajouter un Centre Commercial</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
+            <DialogContent className="rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden max-w-[450px]">
+              <div className="bg-primary p-6 text-primary-foreground flex justify-between items-center">
+                <DialogHeader>
+                  <DialogTitle className="text-xl font-black">{editingItem ? 'Détails du Centre' : 'Nouveau Centre Commercial'}</DialogTitle>
+                </DialogHeader>
+              </div>
+              <div className="grid gap-6 p-8">
                 <div className="grid gap-2">
-                  <Label htmlFor="name">Nom du centre</Label>
+                  <Label htmlFor="name" className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Dénomination Sociale</Label>
                   <Input 
                     id="name" 
                     value={newCenter.name} 
                     onChange={(e) => setNewCenter({...newCenter, name: e.target.value})} 
-                    placeholder="ex: Centre Ville"
-                    className="rounded-xl"
+                    placeholder="ex: Centre Galeries Yetu"
+                    className="rounded-xl h-12 border-2 bg-muted/30 focus:border-primary outline-none transition-all"
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="location">Localisation</Label>
+                  <Label htmlFor="location" className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Adresse / Localisation</Label>
                   <Input 
                     id="location" 
                     value={newCenter.location} 
                     onChange={(e) => setNewCenter({...newCenter, location: e.target.value})} 
-                    placeholder="ex: Gombe, Kinshasa"
-                    className="rounded-xl"
+                    placeholder="ex: Av. de la Libération, Kinshasa"
+                    className="rounded-xl h-12 border-2 bg-muted/30 focus:border-primary outline-none transition-all"
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="description">Description (Optionnel)</Label>
+                  <Label htmlFor="description" className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Observations</Label>
                   <Input 
                     id="description" 
                     value={newCenter.description} 
                     onChange={(e) => setNewCenter({...newCenter, description: e.target.value})} 
-                    className="rounded-xl"
+                    placeholder="Notes additionnelles..."
+                    className="rounded-xl h-12 border-2 bg-muted/30 focus:border-primary outline-none transition-all"
                   />
                 </div>
               </div>
-              <DialogFooter>
-                <Button onClick={handleAddCenter} className="rounded-xl">Enregistrer</Button>
-              </DialogFooter>
+              <div className="p-8 pt-0 flex gap-3">
+                <Button variant="outline" className="flex-1 rounded-xl h-12 font-bold" onClick={() => setIsCenterDialogOpen(false)}>Annuler</Button>
+                <Button onClick={handleSaveCenter} className="flex-1 rounded-xl h-12 font-black shadow-lg shadow-primary/20">
+                  {editingItem ? 'Confirmer' : 'Créer le Centre'}
+                </Button>
+              </div>
             </DialogContent>
           </Dialog>
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+      <div className="flex flex-col md:flex-row items-center gap-4 bg-muted/20 p-4 rounded-3xl border border-muted/50">
+        <div className="relative flex-1 w-full">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input 
-            placeholder="Rechercher par nom, localisation ou immeuble..." 
-            className="pl-10 rounded-xl"
+            placeholder="Rechercher à travers le patrimoine..." 
+            className="pl-12 h-12 rounded-2xl border-none bg-white shadow-sm ring-1 ring-black/5"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
+        </div>
+        <div className="flex items-center gap-2 p-1 bg-white/50 rounded-2xl shadow-inner border w-full md:w-auto">
+          <Badge variant="ghost" className="rounded-xl px-4 py-2 font-bold text-xs uppercase tracking-tighter">Filtre Actif: Aucun</Badge>
         </div>
       </div>
 
@@ -394,48 +476,48 @@ export default function Centers() {
           <TabsTrigger value="units">Unités</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="centers" className="mt-6">
+        <TabsContent value="centers" className="mt-6 animate-in slide-in-from-bottom-2 duration-300">
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {filteredCenters.map((center) => (
-              <Card key={center.id} className="overflow-hidden group">
+              <Card key={center.id} className="overflow-hidden border-none shadow-lg shadow-black/5 rounded-3xl group hover:shadow-xl transition-all duration-300 bg-white">
                 <CardHeader className="pb-4">
                   <div className="flex items-start justify-between">
-                    <div className="p-2 bg-primary/10 rounded-lg">
-                      <Building2 className="w-5 h-5 text-primary" />
+                    <div className="p-3 bg-primary/10 rounded-2xl group-hover:bg-primary group-hover:text-white transition-colors duration-300">
+                      <Building2 className="w-6 h-6 text-primary group-hover:text-white" />
                     </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger render={
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreVertical className="w-4 h-4" />
+                        <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full hover:bg-muted">
+                          <MoreVertical className="w-5 h-5" />
                         </Button>
                       } />
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
-                          <Edit className="w-4 h-4 mr-2" /> Modifier
+                      <DropdownMenuContent align="end" className="rounded-2xl border-none shadow-2xl p-2">
+                        <DropdownMenuItem onClick={() => openEditCenter(center)} className="rounded-xl cursor-pointer">
+                          <Edit className="w-4 h-4 mr-3 text-muted-foreground" /> <span className="font-bold">Modifier</span>
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive" onClick={() => {
+                        <DropdownMenuItem className="text-destructive rounded-xl cursor-pointer" onClick={() => {
                           setItemToDelete({ id: center.id, type: 'centers', name: center.name });
                           setIsConfirmOpen(true);
                         }}>
-                          <Trash2 className="w-4 h-4 mr-2" /> Supprimer
+                          <Trash2 className="w-4 h-4 mr-3" /> <span className="font-bold">Supprimer</span>
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
-                  <CardTitle className="mt-4">{center.name}</CardTitle>
-                  <div className="flex items-center text-sm text-muted-foreground mt-1">
+                  <CardTitle className="mt-4 text-2xl font-black tracking-tighter uppercase">{center.name}</CardTitle>
+                  <div className="flex items-center text-xs font-bold text-muted-foreground mt-1 uppercase tracking-widest italic opacity-70">
                     <MapPin className="w-3 h-3 mr-1" />
                     {center.location}
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-muted-foreground">Immeubles:</span>
-                    <span className="font-medium">{buildings.filter(b => b.centerId === center.id).length}</span>
+                <CardContent className="space-y-4">
+                  <div className="flex justify-between items-center p-3 bg-muted/20 rounded-2xl">
+                    <span className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Immeubles</span>
+                    <span className="font-black text-primary">{buildings.filter(b => b.centerId === center.id).length}</span>
                   </div>
-                  <div className="flex justify-between items-center text-sm mt-2">
-                    <span className="text-muted-foreground">Unités totales:</span>
-                    <span className="font-medium">{units.filter(u => u.centerId === center.id).length}</span>
+                  <div className="flex justify-between items-center p-3 bg-muted/20 rounded-2xl">
+                    <span className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Unités en gestion</span>
+                    <span className="font-black text-primary">{units.filter(u => u.centerId === center.id).length}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -449,34 +531,51 @@ export default function Centers() {
           </div>
         </TabsContent>
 
-        <TabsContent value="buildings" className="mt-6">
-          <Card>
+        <TabsContent value="buildings" className="mt-6 animate-in slide-in-from-bottom-2 duration-300">
+          <Card className="rounded-[2rem] border-none shadow-xl overflow-hidden p-0">
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nom de l'immeuble</TableHead>
-                  <TableHead>Centre</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Unités</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+              <TableHeader className="bg-muted/50 border-none">
+                <TableRow className="border-none">
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest pl-8">Désignation</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest">Centre Affilié</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-center">Unités</TableHead>
+                  <TableHead className="text-right font-black text-[10px] uppercase tracking-widest pr-8">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredBuildings.map((building) => (
-                  <TableRow key={building.id}>
-                    <TableCell className="font-medium">{building.name}</TableCell>
-                    <TableCell>{centers.find(c => c.id === building.centerId)?.name}</TableCell>
-                    <TableCell className="text-muted-foreground">{building.description}</TableCell>
-                    <TableCell>{units.filter(u => u.buildingId === building.id).length}</TableCell>
-                    <TableCell className="text-right">
+                  <TableRow key={building.id} className="hover:bg-muted/10 border-none transition-colors">
+                    <TableCell className="font-black text-lg py-6 pl-8 tracking-tighter">
+                      <div className="flex items-center gap-3">
+                        <div className="w-2 h-2 rounded-full bg-primary" />
+                        {building.name}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="rounded-xl px-4 py-1.5 font-bold uppercase tracking-tighter bg-white shadow-sm italic opacity-80 border-muted">
+                        {centers.find(c => c.id === building.centerId)?.name}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center font-black text-xl text-primary">{units.filter(u => u.buildingId === building.id).length}</TableCell>
+                    <TableCell className="text-right pr-8">
                       <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="w-10 h-10 rounded-xl hover:bg-primary hover:text-white transition-all active:scale-90"
+                          onClick={() => openEditBuilding(building)}
+                        >
                           <Edit className="w-4 h-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => {
-                          setItemToDelete({ id: building.id, type: 'buildings', name: building.name });
-                          setIsConfirmOpen(true);
-                        }}>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="text-destructive w-10 h-10 rounded-xl hover:bg-destructive hover:text-white transition-all active:scale-90" 
+                          onClick={() => {
+                            setItemToDelete({ id: building.id, type: 'buildings', name: building.name });
+                            setIsConfirmOpen(true);
+                          }}
+                        >
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
@@ -495,49 +594,73 @@ export default function Centers() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="units" className="mt-6">
-          <Card>
+        <TabsContent value="units" className="mt-6 animate-in slide-in-from-bottom-2 duration-300">
+          <Card className="rounded-[2rem] border-none shadow-xl overflow-hidden p-0">
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Unité</TableHead>
-                  <TableHead>Immeuble</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Statut</TableHead>
-                  <TableHead>Étage</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+              <TableHeader className="bg-muted/50 border-none">
+                <TableRow className="border-none">
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest pl-8">Unité Locative</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest">Localisation</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest">Type</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest">Statut</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest">Étage</TableHead>
+                  <TableHead className="text-right font-black text-[10px] uppercase tracking-widest pr-8">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredUnits.map((unit) => (
-                  <TableRow key={unit.id}>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        <Home className="w-4 h-4 text-muted-foreground" />
+                  <TableRow key={unit.id} className="hover:bg-muted/10 border-none transition-colors">
+                    <TableCell className="font-black text-lg py-6 pl-8 tracking-tighter">
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "w-10 h-10 rounded-xl flex items-center justify-center bg-muted/50 text-muted-foreground shadow-sm",
+                          unit.status === 'occupied' && "bg-primary/20 text-primary"
+                        )}>
+                          <Home className="w-5 h-5" />
+                        </div>
                         {unit.name}
                       </div>
                     </TableCell>
-                    <TableCell>{buildings.find(b => b.id === unit.buildingId)?.name}</TableCell>
-                    <TableCell className="capitalize">{unit.type}</TableCell>
                     <TableCell>
-                      <Badge variant={
-                        unit.status === 'occupied' ? 'default' : 
-                        unit.status === 'free' ? 'secondary' : 'destructive'
-                      }>
+                      <div className="flex flex-col">
+                        <span className="font-bold text-sm tracking-tighter">{buildings.find(b => b.id === unit.buildingId)?.name}</span>
+                        <span className="text-[10px] uppercase font-black opacity-50">{centers.find(c => c.id === unit.centerId)?.name}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-[10px] font-black uppercase tracking-widest italic">{unit.type === 'shop' ? 'Boutique/Magasin' : 'Bureau/S. Office'}</span>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={cn(
+                        "rounded-full px-4 py-1 text-[10px] font-black uppercase tracking-widest shadow-sm",
+                        unit.status === 'occupied' ? "bg-emerald-500 text-white border-none" : 
+                        unit.status === 'free' ? "bg-amber-50 text-amber-600 border-amber-200" : 
+                        "bg-destructive text-white border-none"
+                      )}>
                         {unit.status === 'occupied' ? 'Occupé' : 
-                         unit.status === 'free' ? 'Libre' : 'Maintenance'}
+                         unit.status === 'free' ? 'Libre' : 'Maint.'}
                       </Badge>
                     </TableCell>
-                    <TableCell>{unit.floor}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="font-bold italic text-muted-foreground">{unit.floor || '-'}</TableCell>
+                    <TableCell className="text-right pr-8">
                       <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="w-10 h-10 rounded-xl hover:bg-primary hover:text-white transition-all active:scale-90"
+                          onClick={() => openEditUnit(unit)}
+                        >
                           <Edit className="w-4 h-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => {
-                          setItemToDelete({ id: unit.id, type: 'units', name: unit.name });
-                          setIsConfirmOpen(true);
-                        }}>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="text-destructive w-10 h-10 rounded-xl hover:bg-destructive hover:text-white transition-all active:scale-90" 
+                          onClick={() => {
+                            setItemToDelete({ id: unit.id, type: 'units', name: unit.name });
+                            setIsConfirmOpen(true);
+                          }}
+                        >
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>

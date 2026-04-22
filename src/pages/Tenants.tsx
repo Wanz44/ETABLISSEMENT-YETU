@@ -58,24 +58,27 @@ export default function Tenants() {
     phone: '', 
     email: '', 
     activityType: '',
+    address: '',
+    idNumber: '',
+    legalStatus: 'particular' as 'particular' | 'company',
     additionalInfo: ''
   });
 
   const handleSaveTenant = async () => {
-    if (!newTenant.name) {
-      toast.error('Le nom du locataire est obligatoire');
+    if (!newTenant.name || (newTenant.legalStatus === 'company' && !newTenant.company)) {
+      toast.error('Veuillez remplir les informations obligatoires (Nom/Entreprise)');
       return;
     }
     try {
       if (editingTenantId) {
         await DataService.update('tenants', editingTenantId, newTenant);
-        toast.success('Locataire mis à jour avec succès');
+        toast.success('Dossier locataire mis à jour');
       } else {
         await DataService.add('tenants', {
           ...newTenant,
           createdAt: new Date().toISOString()
         });
-        toast.success('Locataire enregistré avec succès');
+        toast.success('Nouveau locataire enregistré avec succès');
       }
       
       setNewTenant({ 
@@ -85,6 +88,9 @@ export default function Tenants() {
         phone: '', 
         email: '', 
         activityType: '',
+        address: '',
+        idNumber: '',
+        legalStatus: 'particular',
         additionalInfo: ''
       });
       setEditingTenantId(null);
@@ -94,7 +100,7 @@ export default function Tenants() {
     }
   };
 
-  const openEditDialog = (tenant: Tenant) => {
+  const openEditDialog = (tenant: any) => {
     setEditingTenantId(tenant.id);
     setNewTenant({
       name: tenant.name,
@@ -103,6 +109,9 @@ export default function Tenants() {
       phone: tenant.phone || '',
       email: tenant.email || '',
       activityType: tenant.activityType || '',
+      address: tenant.address || '',
+      idNumber: tenant.idNumber || '',
+      legalStatus: tenant.legalStatus || 'particular',
       additionalInfo: tenant.additionalInfo || ''
     });
     setIsDialogOpen(true);
@@ -130,11 +139,11 @@ export default function Tenants() {
   );
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
+    <div className="space-y-8 pb-20">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Locataires</h2>
-          <p className="text-muted-foreground">Gérez vos clients et l'historique de leurs activités.</p>
+          <h2 className="text-4xl font-black tracking-tighter text-foreground uppercase font-sans">Répertoire Locataires</h2>
+          <p className="text-muted-foreground font-medium italic">Gestion centralisée des comptes clients et des dossiers juridiques.</p>
         </div>
         
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
@@ -142,182 +151,269 @@ export default function Tenants() {
           if (!open) setEditingTenantId(null);
         }}>
           <DialogTrigger render={
-            <Button onClick={() => {
-              setNewTenant({ name: '', company: '', manager: '', phone: '', email: '', activityType: '', additionalInfo: '' });
-              setEditingTenantId(null);
-            }}>
+            <Button 
+                onClick={() => {
+                  setNewTenant({ name: '', company: '', manager: '', phone: '', email: '', activityType: '', address: '', idNumber: '', legalStatus: 'particular', additionalInfo: '' });
+                  setEditingTenantId(null);
+                }}
+                className="rounded-xl font-black h-11 px-6 shadow-lg shadow-primary/20 active:scale-95 transition-all"
+            >
               <Plus className="w-4 h-4 mr-2" />
               Nouveau Locataire
             </Button>
           } />
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>{editingTenantId ? 'Modifier le Locataire' : 'Ajouter un Locataire'}</DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
+          <DialogContent className="sm:max-w-[650px] rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl tracking-tight">
+            <div className="bg-primary p-6 text-primary-foreground border-b-4 border-primary-dark">
+              <DialogHeader>
+                <DialogTitle className="text-2xl font-black tracking-tighter uppercase">
+                  {editingTenantId ? 'Modification Dossier Juridique' : 'Ouverture de Compte Locataire'}
+                </DialogTitle>
+              </DialogHeader>
+            </div>
+            
+            <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="name">Nom Complet</Label>
+                  <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Statut Juridique</Label>
+                  <Select value={newTenant.legalStatus} onValueChange={(val: any) => setNewTenant({...newTenant, legalStatus: val})}>
+                    <SelectTrigger className="rounded-xl h-12 border-2 bg-muted/30 font-bold border-muted/50">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="particular" className="font-bold py-2">PERSONNE PHYSIQUE</SelectItem>
+                      <SelectItem value="company" className="font-bold py-2">PERSONNE MORALE (ENTREPRISE)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                   <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">N° ID / RCCM</Label>
+                   <Input 
+                    value={newTenant.idNumber} 
+                    onChange={(e) => setNewTenant({...newTenant, idNumber: e.target.value})} 
+                    placeholder="ex: CD/KNG/RCCM/..."
+                    className="rounded-xl h-12 border-2 bg-muted/30 font-bold"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 border-t pt-6">
+                <div className="grid gap-2">
+                  <Label htmlFor="name" className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Nom & Prénom / Gérant</Label>
                   <Input 
                     id="name" 
                     value={newTenant.name} 
                     onChange={(e) => setNewTenant({...newTenant, name: e.target.value})} 
+                    className="rounded-xl h-12 border-2 bg-muted/30 font-black"
+                    placeholder="Nom complet"
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="company">Entreprise</Label>
+                  <Label htmlFor="company" className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Raison Sociale</Label>
                   <Input 
                     id="company" 
+                    disabled={newTenant.legalStatus === 'particular'}
                     value={newTenant.company} 
                     onChange={(e) => setNewTenant({...newTenant, company: e.target.value})} 
+                    className="rounded-xl h-12 border-2 bg-muted/30 font-bold"
+                    placeholder="Nom de l'entreprise"
                   />
                 </div>
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="phone">Téléphone</Label>
+                  <Label htmlFor="phone" className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Contact Téléphonique</Label>
                   <Input 
                     id="phone" 
                     value={newTenant.phone} 
                     onChange={(e) => setNewTenant({...newTenant, phone: e.target.value})} 
+                    className="rounded-xl h-12 border-2 bg-muted/30 font-black"
+                    placeholder="+243..."
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email" className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Adresse Courriel</Label>
                   <Input 
                     id="email" 
                     type="email"
                     value={newTenant.email} 
                     onChange={(e) => setNewTenant({...newTenant, email: e.target.value})} 
+                    className="rounded-xl h-12 border-2 bg-muted/30 font-medium"
+                    placeholder="client@domaine.com"
                   />
                 </div>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="activity">Type d'activité</Label>
+
+              <div className="grid gap-2 border-t pt-6">
+                <Label htmlFor="activity" className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Domaine d'activité</Label>
                 <Input 
                   id="activity" 
                   value={newTenant.activityType} 
                   onChange={(e) => setNewTenant({...newTenant, activityType: e.target.value})} 
-                  placeholder="ex: Restaurant, Boutique de mode..."
+                  placeholder="ex: Restauration, Prêt-à-porter, Consulting..."
+                  className="rounded-xl h-12 border-2 bg-muted/30 font-bold"
                 />
               </div>
+
               <div className="grid gap-2">
-                <Label htmlFor="info">Informations Complémentaires</Label>
+                <Label htmlFor="address" className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Adresse Domicile / Siège</Label>
+                <Input 
+                  id="address" 
+                  value={newTenant.address} 
+                  onChange={(e) => setNewTenant({...newTenant, address: e.target.value})} 
+                  className="rounded-xl h-12 border-2 bg-muted/30 border-muted/50 font-medium"
+                  placeholder="Quartier, Commune, Ville..."
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="info" className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Avis d'Audit / Notes Dossier</Label>
                 <textarea 
                   id="info"
-                  className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex min-h-[100px] w-full rounded-2xl border-2 border-muted/30 bg-muted/10 px-4 py-3 text-sm focus-visible:outline-none focus:border-primary transition-all font-medium italic shadow-inner"
                   value={newTenant.additionalInfo}
                   onChange={(e) => setNewTenant({...newTenant, additionalInfo: e.target.value})}
-                  placeholder="Notes, historique, ou besoins spécifiques..."
+                  placeholder="Historique, solvabilité prévisionnelle, ou besoins spécifiques..."
                 />
               </div>
             </div>
-            <DialogFooter>
-              <Button onClick={handleSaveTenant}>{editingTenantId ? 'Sauvegarder les modifications' : 'Enregistrer'}</Button>
-            </DialogFooter>
+            <div className="p-8 pt-0 flex gap-4">
+               <Button variant="outline" className="flex-1 rounded-2xl h-14 font-black text-muted-foreground uppercase tracking-widest" onClick={() => setIsDialogOpen(false)}>Révoquer</Button>
+               <Button onClick={handleSaveTenant} className="flex-[2] rounded-2xl h-14 font-black shadow-xl shadow-primary/20 uppercase tracking-widest">
+                  {editingTenantId ? 'Entériner Modifications' : 'Confirmer Inscription'}
+               </Button>
+            </div>
           </DialogContent>
         </Dialog>
       </div>
 
       {/* Details Dialog */}
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-        <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
+        <DialogContent className="sm:max-w-[700px] p-0 overflow-hidden border-none shadow-2xl rounded-[2.5rem] tracking-tight">
           {selectedTenantDetails && (
             <div className="flex flex-col max-h-[85vh]">
-              <div className="bg-primary p-6 text-primary-foreground">
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md">
-                    <Users className="w-8 h-8" />
+              <div className="bg-primary p-8 text-primary-foreground relative overflow-hidden">
+                <div className="absolute right-0 top-0 opacity-10 transform translate-x-1/4 -translate-y-1/4">
+                  <Users className="w-64 h-64" />
+                </div>
+                <div className="flex items-center gap-6 relative z-10">
+                  <div className="w-20 h-20 bg-white/20 rounded-[2rem] flex items-center justify-center backdrop-blur-xl border border-white/20 shadow-2xl">
+                    <Users className="w-10 h-10" />
                   </div>
                   <div>
-                    <h2 className="text-2xl font-bold">{selectedTenantDetails.name}</h2>
-                    <p className="opacity-80">{selectedTenantDetails.company || 'Compte Personnel'}</p>
+                    <h2 className="text-3xl font-black uppercase tracking-tighter leading-none">{selectedTenantDetails.name}</h2>
+                    <div className="flex items-center gap-2 mt-2">
+                      <p className="opacity-80 font-bold uppercase tracking-widest text-[9px] bg-white/20 px-3 py-1 rounded-full">{selectedTenantDetails.company || 'Dossier Personnel'}</p>
+                      <Badge className="bg-emerald-500/30 text-white border-none rounded-full px-3 py-1 text-[8px] font-black uppercase tracking-widest backdrop-blur-md">Certifié</Badge>
+                    </div>
                   </div>
                 </div>
               </div>
               
-              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              <div className="flex-1 overflow-y-auto p-8 space-y-8">
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="space-y-1 bg-muted/20 p-4 rounded-2xl border border-muted/50">
+                    <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest opacity-60 italic">Email Officiel</Label>
+                    <p className="text-sm font-black truncate">{selectedTenantDetails.email || 'Non renseigné'}</p>
+                  </div>
+                  <div className="space-y-1 bg-muted/20 p-4 rounded-2xl border border-muted/50">
+                    <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest opacity-60 italic">Contact direct</Label>
+                    <p className="text-sm font-black">{selectedTenantDetails.phone || 'Non renseigné'}</p>
+                  </div>
+                  <div className="space-y-1 bg-muted/20 p-4 rounded-2xl border border-muted/50">
+                    <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest opacity-60 italic">Secteur Métier</Label>
+                    <p className="text-sm font-black uppercase tracking-tighter">{selectedTenantDetails.activityType || 'N/A'}</p>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <Label className="text-[10px] uppercase font-bold text-muted-foreground italic">Email</Label>
-                    <p className="text-sm font-medium">{selectedTenantDetails.email || 'N/A'}</p>
+                  <div className="space-y-1 bg-muted/20 p-4 rounded-2xl border border-muted/50">
+                    <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest opacity-60 italic">Identifiant Légal</Label>
+                    <p className="text-sm font-mono font-bold tracking-tighter">{selectedTenantDetails.idNumber || 'N/A'}</p>
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-[10px] uppercase font-bold text-muted-foreground italic">Téléphone</Label>
-                    <p className="text-sm font-medium">{selectedTenantDetails.phone || 'N/A'}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[10px] uppercase font-bold text-muted-foreground italic">Activité</Label>
-                    <p className="text-sm font-medium">{selectedTenantDetails.activityType || 'N/A'}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[10px] uppercase font-bold text-muted-foreground italic">Inscrit le</Label>
-                    <p className="text-sm font-medium">{new Date(selectedTenantDetails.createdAt).toLocaleDateString()}</p>
+                  <div className="space-y-1 bg-muted/20 p-4 rounded-2xl border border-muted/50">
+                    <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest opacity-60 italic">Domiciliation Physique</Label>
+                    <p className="text-sm font-bold opacity-80">{selectedTenantDetails.address || 'N/A'}</p>
                   </div>
                 </div>
 
                 {selectedTenantDetails.additionalInfo && (
-                  <div className="p-4 bg-muted/30 rounded-2xl border border-muted/50">
-                    <Label className="text-[10px] uppercase font-bold text-muted-foreground italic mb-2 block">Informations Complémentaires</Label>
-                    <p className="text-xs leading-relaxed text-muted-foreground italic">"{selectedTenantDetails.additionalInfo}"</p>
+                  <div className="p-6 bg-primary/5 rounded-[2rem] border-2 border-dashed border-primary/20 relative shadow-inner">
+                    <div className="absolute top-0 right-0 p-2 opacity-10"><Receipt className="w-8 h-8" /></div>
+                    <Label className="text-[10px] uppercase font-black text-primary tracking-widest mb-3 block">Rapport d'Audit Clientèle</Label>
+                    <p className="text-xs leading-relaxed font-semibold italic text-foreground opacity-80">"{selectedTenantDetails.additionalInfo}"</p>
                   </div>
                 )}
 
                 <div className="space-y-4">
-                  <h3 className="font-bold border-b pb-2 flex items-center">
-                    <Receipt className="w-4 h-4 mr-2" /> Historique récent des factures
+                  <h3 className="text-lg font-black uppercase tracking-tighter flex items-center border-b-2 border-muted pb-2">
+                    <Receipt className="w-5 h-5 mr-3 text-primary" /> Track Record Financier
                   </h3>
-                  <div className="space-y-2">
-                    {invoices.filter(inv => inv.tenantId === selectedTenantDetails.id).slice(0, 5).map(inv => (
-                      <div key={inv.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/20 border border-muted/20 hover:bg-muted/40 transition-colors">
-                        <div>
-                          <p className="text-xs font-bold">{inv.invoiceNumber || `Facture #${String(inv.id).slice(0, 4).toUpperCase()}`}</p>
-                          <p className="text-[9px] text-muted-foreground">{new Date(inv.createdAt).toLocaleDateString()}</p>
+                  <div className="grid gap-3">
+                    {invoices.filter(inv => inv.tenantId === selectedTenantDetails.id).sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5).map(inv => (
+                      <div key={inv.id} className="flex items-center justify-between p-4 rounded-2xl bg-white shadow-sm ring-1 ring-black/5 hover:ring-primary/20 transition-all group">
+                        <div className="flex items-center gap-4">
+                          <div className={cn(
+                            "w-10 h-10 rounded-xl flex items-center justify-center text-[10px] font-black",
+                            inv.status === 'paid' ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                          )}>
+                            {inv.status === 'paid' ? 'OK' : '!!'}
+                          </div>
+                          <div>
+                            <p className="text-xs font-black uppercase tracking-tighter">{inv.invoiceNumber || `FAC-${String(inv.id).slice(0, 4).toUpperCase()}`}</p>
+                            <p className="text-[10px] text-muted-foreground font-bold opacity-60 italic">{format(new Date(inv.createdAt), 'MMMM yyyy', {locale: fr})}</p>
+                          </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-xs font-bold">{inv.totalAmount} {inv.currency}</p>
-                          <p className={`text-[9px] font-bold ${inv.status === 'paid' ? 'text-emerald-600' : 'text-amber-600'}`}>
-                            {inv.status.toUpperCase()}
-                          </p>
+                          <p className="text-sm font-black text-foreground">{inv.totalAmount.toLocaleString()} {inv.currency}</p>
+                          <Badge variant="outline" className={cn(
+                            "text-[8px] font-black uppercase tracking-widest px-2 py-0 border-none",
+                            inv.status === 'paid' ? "text-emerald-600 bg-emerald-50" : "text-amber-600 bg-amber-50"
+                          )}>
+                            {inv.status === 'paid' ? 'Soldé' : 'Arriéré'}
+                          </Badge>
                         </div>
                       </div>
                     ))}
                     {invoices.filter(inv => inv.tenantId === selectedTenantDetails.id).length === 0 && (
-                      <p className="text-center text-xs text-muted-foreground py-4 italic">Aucun historique de facturation trouvé.</p>
+                      <div className="text-center py-12 bg-muted/10 rounded-3xl border-2 border-dashed">
+                        <Receipt className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-20" />
+                        <p className="text-xs text-muted-foreground font-medium italic">Aucun flux financier audité pour ce preneur.</p>
+                      </div>
                     )}
                   </div>
                 </div>
               </div>
               
-              <div className="p-6 border-t bg-muted/10 flex justify-end">
-                <Button variant="outline" onClick={() => setIsDetailsOpen(false)} className="rounded-xl">Fermer</Button>
+              <div className="p-8 border-t bg-muted/20 flex gap-4">
+                <Button className="flex-1 rounded-2xl h-12 font-black uppercase tracking-widest shadow-xl shadow-primary/20" onClick={() => setIsDetailsOpen(false)}>Clôturer l'Audit</Button>
               </div>
             </div>
           )}
         </DialogContent>
       </Dialog>
 
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+      <div className="flex flex-col md:flex-row items-center gap-4 bg-muted/20 p-4 rounded-3xl border border-muted/50">
+        <div className="relative flex-1 w-full sm:max-w-md">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input 
-            placeholder="Rechercher un locataire ou une entreprise..." 
-            className="pl-10"
+            placeholder="Filtrer par nom, gérant ou RCCM..." 
+            className="pl-12 h-12 rounded-2xl border-none bg-white shadow-sm ring-1 ring-black/5"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
       </div>
 
-      <Card>
+      <Card className="rounded-[2.5rem] border-none shadow-2xl overflow-hidden bg-white/50 backdrop-blur-md">
         <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Locataire</TableHead>
-              <TableHead>Contact</TableHead>
-              <TableHead>Activité</TableHead>
-              <TableHead>Statut Contrat</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+          <TableHeader className="bg-muted/40 border-none">
+            <TableRow className="border-none hover:bg-transparent">
+              <TableHead className="font-black text-[10px] uppercase tracking-widest pl-8 py-4">Locataire & Identité</TableHead>
+              <TableHead className="font-black text-[10px] uppercase tracking-widest py-4">Coordonnées Directes</TableHead>
+              <TableHead className="font-black text-[10px] uppercase tracking-widest py-4">Profil d'Activité</TableHead>
+              <TableHead className="font-black text-[10px] uppercase tracking-widest py-4">Statut de Bail</TableHead>
+              <TableHead className="text-right font-black text-[10px] uppercase tracking-widest pr-8 py-4">Opérations</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -325,74 +421,82 @@ export default function Tenants() {
               const hasActiveContract = contracts.some(c => c.tenantId === tenant.id && c.status === 'active');
               
               return (
-                <TableRow key={tenant.id}>
-                  <TableCell>
-                    <div>
-                      <p className="font-medium">{tenant.name}</p>
-                      <p className="text-xs text-muted-foreground">{tenant.company}</p>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="space-y-1">
-                      <div className="flex items-center text-xs text-muted-foreground">
-                        <Phone className="w-3 h-3 mr-2" />
-                        {tenant.phone}
+                <TableRow key={tenant.id} className="hover:bg-muted/10 border-none transition-colors border-b last:border-none">
+                  <TableCell className="pl-8 py-6">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-sm ring-1 ring-primary/20">
+                         <Users className="w-5 h-5" />
                       </div>
-                      <div className="flex items-center text-xs text-muted-foreground">
-                        <Mail className="w-3 h-3 mr-2" />
-                        {tenant.email}
+                      <div className="flex flex-col">
+                        <span className="font-black text-lg tracking-tighter uppercase leading-none">{tenant.name}</span>
+                        <span className="text-[10px] font-black text-muted-foreground opacity-60 mt-1 uppercase tracking-tighter">{tenant.company || 'Compte Particulier'}</span>
                       </div>
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center text-sm">
-                      <Briefcase className="w-4 h-4 mr-2 text-muted-foreground" />
-                      {tenant.activityType}
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center text-[10px] font-black text-primary uppercase tracking-tighter">
+                        <Phone className="w-3 h-3 mr-2 opacity-50" />
+                        {tenant.phone || 'N/A'}
+                      </div>
+                      <div className="flex items-center text-[10px] font-semibold text-muted-foreground lowercase opacity-70 italic">
+                        <Mail className="w-3 h-3 mr-2 opacity-50" />
+                        {tenant.email || 'N/A'}
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center text-[10px] font-black uppercase tracking-widest bg-muted/40 px-3 py-1.5 rounded-full w-fit border shadow-inner ring-1 ring-black/5">
+                      <Briefcase className="w-3.5 h-3.5 mr-2 opacity-40 text-primary" />
+                      {tenant.activityType || 'N/A'}
                     </div>
                   </TableCell>
                   <TableCell>
                     {hasActiveContract ? (
-                      <div className="flex items-center text-emerald-600 text-xs font-bold bg-emerald-50 px-2 py-1 rounded-full w-fit">
-                        <CheckCircle2 className="w-3 h-3 mr-1" /> Actif
+                      <div className="flex items-center text-emerald-600 text-[10px] font-black uppercase tracking-widest bg-emerald-50 px-3 py-1 rounded-full w-fit border border-emerald-200">
+                        <CheckCircle2 className="w-3.5 h-3.5 mr-2" /> Engagement Actif
                       </div>
                     ) : (
-                      <div className="flex items-center text-amber-600 text-xs font-bold bg-amber-50 px-2 py-1 rounded-full w-fit">
-                         Aucun actif
+                      <div className="flex items-center text-amber-600 text-[10px] font-black uppercase tracking-widest bg-amber-50 px-3 py-1 rounded-full w-fit border border-amber-200">
+                         Vacance Contractuelle
                       </div>
                     )}
                   </TableCell>
-                  <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger render={
-                      <Button variant="ghost" size="icon">
-                        <MoreVertical className="w-4 h-4" />
-                      </Button>
-                    } />
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => openDetails(tenant)}>
-                        <Eye className="w-4 h-4 mr-2" /> Voir Détails
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => openEditDialog(tenant)}>
-                        <Edit className="w-4 h-4 mr-2" /> Modifier
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive" onClick={() => {
-                        setTenantToDelete(tenant.id);
-                        setIsConfirmOpen(true);
-                      }}>
-                        <Trash2 className="w-4 h-4 mr-2" /> Supprimer
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            );
-          })}
-          {filteredTenants.length === 0 && (
+                  <TableCell className="text-right pr-8">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger render={
+                        <Button variant="ghost" size="icon" className="w-10 h-10 rounded-full hover:bg-muted active:scale-90 transition-all">
+                          <MoreVertical className="w-5 h-5" />
+                        </Button>
+                      } />
+                      <DropdownMenuContent align="end" className="rounded-2xl border-none shadow-2xl p-2 min-w-[180px] bg-white ring-1 ring-black/5">
+                        <DropdownMenuItem onClick={() => openDetails(tenant)} className="rounded-xl cursor-pointer font-bold gap-3 py-2.5">
+                          <Eye className="w-4 h-4 text-primary mr-2" /> Audit du Dossier
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openEditDialog(tenant)} className="rounded-xl cursor-pointer font-bold gap-3 py-2.5">
+                          <Edit className="w-4 h-4 text-muted-foreground mr-2" /> Modification Admin
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="text-destructive rounded-xl cursor-pointer font-bold gap-3 py-2.5" onClick={() => {
+                          setTenantToDelete(tenant.id);
+                          setIsConfirmOpen(true);
+                        }}>
+                          <Trash2 className="w-4 h-4 mr-2" /> Prononcer Radiation
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+            {filteredTenants.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-12">
+                <TableCell colSpan={5} className="text-center py-32">
                   <div className="flex flex-col items-center text-muted-foreground">
-                    <Users className="w-12 h-12 mb-4 opacity-20" />
-                    <p>Aucun locataire trouvé.</p>
+                    <div className="p-8 rounded-full bg-muted/20 mb-6">
+                      <Users className="w-16 h-16 opacity-10" />
+                    </div>
+                    <p className="text-xl font-black uppercase tracking-tighter">Répertoire Vide</p>
+                    <p className="text-sm italic font-medium opacity-60">Aucun preneur ne correspond à votre recherche stratégique.</p>
                   </div>
                 </TableCell>
               </TableRow>
@@ -404,10 +508,10 @@ export default function Tenants() {
       <ConfirmDialog 
         open={isConfirmOpen}
         onOpenChange={setIsConfirmOpen}
-        title="Supprimer le locataire"
-        description="Êtes-vous sûr de vouloir supprimer ce locataire ? Cette action est irréversible et supprimera toutes les données associées."
+        title="RADIATION DU LOCATAIRE"
+        description="Êtes-vous certain de vouloir radier définitivement ce locataire ? Cette action effacera irrémédiablement toutes les archives contractuelles liées à ce preneur."
         onConfirm={handleDeleteTenant}
       />
     </div>
   );
-}
+ }
