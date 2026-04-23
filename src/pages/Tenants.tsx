@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Users, Search, MoreVertical, Edit, Trash2, Phone, Mail, Briefcase, Eye, CheckCircle2, Receipt } from 'lucide-react';
+import { Plus, Users, Search, MoreVertical, Edit, Trash2, Phone, Mail, Briefcase, Eye, CheckCircle2, Receipt, Upload, FileJson } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -50,6 +50,8 @@ export default function Tenants() {
   const [editingTenantId, setEditingTenantId] = useState<any>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [selectedTenantDetails, setSelectedTenantDetails] = useState<Tenant | null>(null);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [importData, setImportData] = useState('');
   
   const data = useLiveQuery(async () => {
     return {
@@ -135,6 +137,37 @@ export default function Tenants() {
     setIsDetailsOpen(true);
   };
 
+  const handleImportTenants = async () => {
+    try {
+      const parsedData = JSON.parse(importData);
+      if (!Array.isArray(parsedData)) {
+        toast.error('Le format doit être un tableau JSON de locataires');
+        return;
+      }
+
+      const tenantsToInsert = parsedData.map(t => ({
+        id: crypto.randomUUID(),
+        name: t.name || 'Sans Nom',
+        company: t.company || '',
+        manager: t.manager || '',
+        phone: t.phone || '',
+        email: t.email || '',
+        activityType: t.activityType || '',
+        address: t.address || '',
+        idNumber: t.idNumber || '',
+        legalStatus: t.legalStatus || 'particular',
+        additionalInfo: t.additionalInfo || '',
+        createdAt: new Date().toISOString()
+      }));
+
+      await dbLocal.tenants.bulkAdd(tenantsToInsert);
+      toast.success(`${tenantsToInsert.length} locataires importés avec succès`);
+      setIsImportDialogOpen(false);
+      setImportData('');
+    } catch (e) {
+      toast.error('Erreur lors de l\'importation: Format JSON invalide');
+    }
+  };
   const handleDeleteTenant = async () => {
     if (!tenantToDelete) return;
     try {
@@ -159,7 +192,7 @@ export default function Tenants() {
           <p className="text-muted-foreground font-medium italic">Gestion centralisée des comptes clients et des dossiers juridiques.</p>
         </div>
         
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
           setIsDialogOpen(open);
           if (!open) setEditingTenantId(null);
         }}>
@@ -176,6 +209,44 @@ export default function Tenants() {
               Nouveau Locataire
             </Button>
           } />
+          
+          {/* New Bulk Import Button */}
+          <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
+            <DialogTrigger render={
+              <Button variant="outline" className="rounded-xl font-black h-11 px-6 border-2 border-primary/20 hover:bg-primary/5 text-primary active:scale-95 transition-all ml-2">
+                <Upload className="w-4 h-4 mr-2" />
+                Importation Massive
+              </Button>
+            } />
+            <DialogContent className="sm:max-w-[550px] rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl">
+              <div className="bg-primary p-6 text-primary-foreground">
+                <DialogHeader>
+                  <DialogTitle className="text-xl font-black uppercase tracking-widest flex items-center gap-2">
+                    <FileJson className="w-6 h-6" /> Importation Stratégique (JSON)
+                  </DialogTitle>
+                </DialogHeader>
+              </div>
+              <div className="p-8 space-y-4">
+                <div className="p-4 bg-primary/5 rounded-2xl border-2 border-dashed border-primary/20 text-xs text-primary/70 font-medium italic">
+                  Collez ci-dessous le tableau JSON des locataires pour une insertion massive dans la base de données locale.
+                </div>
+                <textarea 
+                  value={importData}
+                  onChange={(e) => setImportData(e.target.value)}
+                  placeholder='[{"name": "Jean Dupont", "phone": "081..."}, ...]'
+                  className="w-full h-48 rounded-2xl border-2 border-muted/50 p-4 font-mono text-xs focus:border-primary outline-none bg-muted/10 shadow-inner"
+                />
+                <div className="text-[10px] text-muted-foreground uppercase font-black tracking-tighter">
+                  Champs acceptés: name, company, phone, email, activityType, address, idNumber, legalStatus...
+                </div>
+              </div>
+              <div className="p-8 pt-0">
+                <Button onClick={handleImportTenants} className="w-full rounded-2xl h-14 font-black shadow-xl shadow-primary/20 uppercase tracking-widest">
+                  Lancer l'Importation de Masse
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
           <DialogContent className="sm:max-w-[650px] rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl tracking-tight">
             <div className="bg-primary p-6 text-primary-foreground border-b-4 border-primary-dark">
               <DialogHeader>
@@ -212,11 +283,21 @@ export default function Tenants() {
 
               <div className="grid grid-cols-2 gap-4 border-t pt-6">
                 <div className="grid gap-2">
-                  <Label htmlFor="name" className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Nom complet / Mandataire (*)</Label>
+                  <Label htmlFor="name" className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">
+                    {newTenant.legalStatus === 'company' ? 'Mandataire / Gérant (*)' : 'Nom Complet (*)'}
+                  </Label>
                   <Input 
                     id="name" 
                     value={newTenant.name} 
-                    onChange={(e) => setNewTenant({...newTenant, name: e.target.value})} 
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setNewTenant(prev => ({ 
+                        ...prev, 
+                        name: val,
+                        // Automatically set manager to name for consistency
+                        manager: prev.legalStatus === 'company' ? val : prev.manager 
+                      }));
+                    }} 
                     className="rounded-xl h-12 border-2 bg-muted/30 font-black"
                     placeholder="Obligatoire"
                   />
@@ -441,10 +522,14 @@ export default function Tenants() {
                       <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-sm ring-1 ring-primary/20">
                          <Users className="w-5 h-5" />
                       </div>
-                      <div className="flex flex-col">
-                        <span className="font-black text-lg tracking-tighter uppercase leading-none">{tenant.name}</span>
-                        <span className="text-[10px] font-black text-muted-foreground opacity-60 mt-1 uppercase tracking-tighter">{tenant.company || 'Compte Particulier'}</span>
-                      </div>
+                        <div className="flex flex-col">
+                          <span className="font-black text-lg tracking-tighter uppercase leading-none">
+                            {tenant.legalStatus === 'company' ? tenant.company : tenant.name}
+                          </span>
+                          <span className="text-[10px] font-black text-muted-foreground opacity-60 mt-1 uppercase tracking-tighter">
+                            {tenant.legalStatus === 'company' ? `Mandataire: ${tenant.name}` : 'Compte Particulier'}
+                          </span>
+                        </div>
                     </div>
                   </TableCell>
                   <TableCell>

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { cn } from '../lib/utils';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, 
@@ -43,6 +44,17 @@ export default function TenantDetails() {
   const totalPaid = payments.reduce((acc, p) => acc + p.amount, 0);
   const totalDebt = totalBilled - totalPaid;
 
+  const now = new Date();
+  const overdueInvoices = invoices.filter(inv => 
+    inv.status !== 'paid' && 
+    new Date(inv.dueDate) < now
+  );
+  
+  const unpaidInvoices = invoices.filter(inv => inv.status !== 'paid');
+
+  const overdueAmount = overdueInvoices.reduce((acc, inv) => acc + (inv.totalAmount - inv.amountPaid), 0);
+  const totalUnpaidAmount = unpaidInvoices.reduce((acc, inv) => acc + (inv.totalAmount - inv.amountPaid), 0);
+
   const months = [
     'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
     'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
@@ -55,47 +67,95 @@ export default function TenantDetails() {
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">{tenant.name}</h2>
-          <p className="text-muted-foreground">{tenant.company} • Historique & Dettes</p>
+          <h2 className="text-3xl font-black tracking-tighter uppercase">
+            {tenant.legalStatus === 'company' ? tenant.company : tenant.name}
+          </h2>
+          <p className="text-xs font-black text-muted-foreground uppercase tracking-widest opacity-60">
+            {tenant.legalStatus === 'company' ? `Mandataire / Gérant: ${tenant.name}` : 'Dossier Locatire Particulier'} • Situation Financière
+          </p>
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card className="rounded-3xl border-none shadow-xl shadow-black/5">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Facturé</CardTitle>
-            <Receipt className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-[10px] font-black uppercase text-muted-foreground tracking-widest italic">Total Facturé</CardTitle>
+            <Receipt className="h-4 w-4 text-muted-foreground opacity-30" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalBilled.toLocaleString()} $</div>
+            <div className="text-2xl font-black tracking-tighter">{totalBilled.toLocaleString()} <span className="text-xs font-normal opacity-50">$</span></div>
           </CardContent>
         </Card>
-        <Card>
+
+        <Card className="rounded-3xl border-none shadow-xl shadow-black/5">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Payé</CardTitle>
-            <CreditCard className="h-4 w-4 text-emerald-600" />
+            <CardTitle className="text-[10px] font-black uppercase text-emerald-600 tracking-widest italic">Total Encaissé</CardTitle>
+            <CreditCard className="h-4 w-4 text-emerald-600 opacity-30" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-emerald-600">{totalPaid.toLocaleString()} $</div>
+            <div className="text-2xl font-black tracking-tighter text-emerald-600">{totalPaid.toLocaleString()} <span className="text-xs font-normal opacity-50">$</span></div>
           </CardContent>
         </Card>
-        <Card className={totalDebt > 0 ? "border-destructive/50 bg-destructive/5" : ""}>
+
+        <Card className="rounded-3xl border-none shadow-xl shadow-black/5 bg-amber-50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Dette Actuelle</CardTitle>
-            <TrendingDown className={`h-4 w-4 ${totalDebt > 0 ? "text-destructive" : "text-muted-foreground"}`} />
+            <CardTitle className="text-[10px] font-black uppercase text-amber-700 tracking-widest italic">Factures Impayées</CardTitle>
+            <TrendingDown className="h-4 w-4 text-amber-700 opacity-30" />
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${totalDebt > 0 ? "text-destructive" : "text-emerald-600"}`}>
-              {totalDebt.toLocaleString()} $
+            <div className="text-2xl font-black tracking-tighter text-amber-700">{totalUnpaidAmount.toLocaleString()} <span className="text-xs font-normal opacity-50">$</span></div>
+            <p className="text-[9px] font-black uppercase opacity-60 mt-1">{unpaidInvoices.length} Titres en attente</p>
+          </CardContent>
+        </Card>
+
+        <Card className={cn("rounded-3xl border-none shadow-xl shadow-black/5", overdueAmount > 0 ? "bg-destructive/10 text-destructive ring-2 ring-destructive/20" : "")}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-[10px] font-black uppercase tracking-widest italic">Dettes Échues</CardTitle>
+            <AlertCircle className={cn("h-4 w-4 opacity-30", overdueAmount > 0 ? "text-destructive" : "text-muted-foreground")} />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-black tracking-tighter">
+              {overdueAmount.toLocaleString()} <span className="text-xs font-normal opacity-50">$</span>
             </div>
-            {totalDebt > 0 && (
-              <p className="text-xs text-destructive mt-1 flex items-center gap-1">
-                <AlertCircle className="w-3 h-3" /> Paiement requis
+            {overdueAmount > 0 && (
+              <p className="text-[9px] font-black uppercase mt-1 animate-pulse">
+                Action Juridique / Recouvrement requis
               </p>
             )}
           </CardContent>
         </Card>
       </div>
+
+      {overdueInvoices.length > 0 && (
+        <Card className="rounded-[2.5rem] border-none shadow-2xl bg-destructive/5 text-destructive p-8">
+          <CardHeader className="p-0 mb-6">
+            <CardTitle className="flex items-center gap-3 text-xl font-black tracking-tighter uppercase">
+              <div className="w-10 h-10 rounded-full bg-destructive/20 flex items-center justify-center animate-bounce">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              Factures en Souffrance (Échues)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="space-y-3">
+              {overdueInvoices.map(inv => (
+                <div key={inv.id} className="flex items-center justify-between p-4 bg-white/50 backdrop-blur rounded-2xl border border-destructive/20">
+                  <div>
+                    <p className="font-black text-sm uppercase">{months[inv.month - 1]} {inv.year}</p>
+                    <p className="text-[10px] uppercase font-bold opacity-60">Échu le : {format(new Date(inv.dueDate), 'dd MMMM yyyy', { locale: fr })}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-black text-lg tracking-tighter">{(inv.totalAmount - inv.amountPaid).toLocaleString()} $</p>
+                    <Badge variant="destructive" className="text-[8px] h-4 uppercase font-black tracking-tight leading-none">
+                      Retard de {Math.floor((now.getTime() - new Date(inv.dueDate).getTime()) / (1000 * 60 * 60 * 24))} jours
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-8 md:grid-cols-2">
         <Card>

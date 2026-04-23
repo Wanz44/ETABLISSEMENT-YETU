@@ -47,6 +47,9 @@ import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+
 export default function Invoices() {
   const data = useLiveQuery(async () => {
     return {
@@ -188,10 +191,122 @@ export default function Invoices() {
 
   const confirmPrint = () => {
     if (!selectedInvoice) return;
-    setInvoiceToPrint(selectedInvoice);
-    setTimeout(() => {
-      window.print();
-    }, 100);
+    generateInvoicePDF(selectedInvoice);
+    setIsPrintConfirmOpen(false);
+  };
+
+  const generateInvoicePDF = (invoice: Invoice) => {
+    const tenant = tenants.find(t => t.id === invoice.tenantId);
+    const unit = units.find(u => u.id === invoice.unitId);
+    const center = centers.find(c => c.id === unit?.centerId);
+    const contract = contracts.find(c => c.id === invoice.contractId);
+
+    const doc = new jsPDF();
+    const primaryColor: [number, number, number] = [26, 31, 54]; // #1A1F36
+    
+    // Header background
+    doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.rect(0, 0, 210, 45, 'F');
+    
+    // Brand
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(22);
+    doc.setFont('helvetica', 'bold');
+    doc.text('YETU BANK - GESTION', 20, 25);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Département d\'Administration Immobilière', 20, 32);
+    
+    // Invoice Title
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('FACTURE', 190, 25, { align: 'right' });
+    doc.setFontSize(10);
+    doc.text(invoice.invoiceNumber || `REF: ${String(invoice.id).slice(0, 8).toUpperCase()}`, 190, 32, { align: 'right' });
+
+    // Info Section
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(10);
+    
+    // Column 1: From
+    doc.setFont('helvetica', 'bold');
+    doc.text('ÉMETTEUR:', 20, 60);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Établissement YETU', 20, 65);
+    doc.text('Direction Financière', 20, 70);
+    doc.text('Kinshasa, RD Congo', 20, 75);
+
+    // Column 2: To
+    doc.setFont('helvetica', 'bold');
+    doc.text('DESTINATAIRE:', 120, 60);
+    doc.setFont('helvetica', 'normal');
+    doc.text(tenant?.name || 'N/A', 120, 65);
+    if (tenant?.company) doc.text(tenant.company, 120, 70);
+    doc.text(`ID/RCCM: ${tenant?.idNumber || 'N/A'}`, 120, 75);
+    doc.text(`Tél: ${tenant?.phone || 'N/A'}`, 120, 80);
+
+    // Details Bar
+    doc.setFillColor(243, 245, 248);
+    doc.rect(20, 90, 170, 20, 'F');
+    
+    doc.setFont('helvetica', 'bold');
+    doc.text('DATE D\'ÉMISSION', 25, 98);
+    doc.text('DATE D\'ÉCHÉANCE', 75, 98);
+    doc.text('PÉRIODE', 125, 98);
+    doc.text('DEVISE', 175, 98);
+    
+    doc.setFont('helvetica', 'normal');
+    doc.text(format(new Date(invoice.createdAt), 'dd/MM/yyyy'), 25, 105);
+    doc.text(format(new Date(invoice.dueDate), 'dd/MM/yyyy'), 75, 105);
+    doc.text(`${months[invoice.month - 1]} ${invoice.year}`, 125, 105);
+    doc.text(invoice.currency || 'USD', 175, 105);
+
+    // Items Table
+    autoTable(doc, {
+      startY: 120,
+      head: [['Description de l\'unité / Prestation', 'Montant Unit.']],
+      body: [
+        [`LOEYER MENSUEL - ${unit?.name || 'Local'} (${center?.name || 'N/A'})`, `${invoice.amountRent.toLocaleString()} ${invoice.currency}`],
+        [`PROVISION EAU / SERVICES`, `${invoice.amountWater.toLocaleString()} ${invoice.currency}`],
+        [`FORFAIT ÉLECTRICITÉ / ÉNERGIE`, `${invoice.amountElectricity.toLocaleString()} ${invoice.currency}`],
+      ],
+      headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold' },
+      styles: { cellPadding: 8, fontSize: 10 },
+      columnStyles: {
+        0: { cellWidth: 130 },
+        1: { halign: 'right', cellWidth: 40, fontStyle: 'bold' }
+      }
+    });
+
+    // Summary
+    const finalY = (doc as any).lastAutoTable.finalY + 10;
+    
+    doc.line(120, finalY, 190, finalY);
+    
+    doc.setFont('helvetica', 'bold');
+    doc.text('TOTAL GÉNÉRAL:', 120, finalY + 10);
+    doc.setFontSize(14);
+    doc.text(`${invoice.totalAmount.toLocaleString()} ${invoice.currency}`, 190, finalY + 10, { align: 'right' });
+    
+    doc.setFontSize(10);
+    doc.text('DÉJÀ RÉGLÉ:', 120, finalY + 20);
+    doc.setTextColor(16, 185, 129); // emerald-500
+    doc.text(`${invoice.amountPaid.toLocaleString()} ${invoice.currency}`, 190, finalY + 20, { align: 'right' });
+    
+    doc.setTextColor(239, 68, 68); // rose-500
+    doc.text('SOLDE DU:', 120, finalY + 30);
+    doc.text(`${(invoice.totalAmount - invoice.amountPaid).toLocaleString()} ${invoice.currency}`, 190, finalY + 30, { align: 'right' });
+
+    // Footer
+    doc.setTextColor(100, 116, 139);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'italic');
+    doc.text('Note: Cette facture est un titre de paiement officiel émis par l\'Etablissement YETU. Tout retard de paiement peut entraîner des pénalités.', 105, 280, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.text('YETU BANK - Excellence en Gestion Immobilière', 105, 285, { align: 'center' });
+
+    doc.save(`Facture_${invoice.invoiceNumber || invoice.id}_${tenant?.name}.pdf`);
+    toast.success('Facture PDF générée avec succès');
   };
 
   const handleQuickPayment = async () => {
@@ -658,7 +773,7 @@ export default function Invoices() {
                         <DropdownMenuItem onClick={() => handlePrint(invoice)} className="rounded-xl cursor-pointer font-bold gap-3 py-2.5">
                           <Printer className="w-4 h-4 text-muted-foreground" /> Imprimer Physique
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="rounded-xl cursor-pointer font-bold gap-3 py-2.5">
+                        <DropdownMenuItem onClick={() => generateInvoicePDF(invoice)} className="rounded-xl cursor-pointer font-bold gap-3 py-2.5">
                           <Download className="w-4 h-4 text-muted-foreground" /> Archiver PDF
                         </DropdownMenuItem>
                         <DropdownMenuItem className="text-emerald-600 rounded-xl cursor-pointer font-black gap-3 py-2.5 bg-emerald-50 hover:bg-emerald-100 transition-colors" onClick={() => {
