@@ -20,13 +20,13 @@ export class AppDatabase extends Dexie {
 
   constructor() {
     super('YetuLocalDB');
-    this.version(5).stores({
+    this.version(6).stores({
       centers: '++id, name, location',
       buildings: '++id, centerId, name',
       units: '++id, buildingId, centerId, name, status',
-      tenants: '++id, name, company, email',
+      tenants: '++id, name, company, email, legalStatus, idNumber',
       contracts: '++id, tenantId, unitId, centerId, status',
-      invoices: '++id, contractId, tenantId, month, year, status',
+      invoices: '++id, contractId, tenantId, month, year, status, [tenantId+status]',
       payments: '++id, invoiceId, tenantId, date, serialNumber',
       expenses: '++id, category, centerId, date',
       maintenance: '++id, unitId, centerId, status, priority',

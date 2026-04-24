@@ -160,7 +160,7 @@ export default function Tenants() {
         createdAt: new Date().toISOString()
       }));
 
-      await dbLocal.tenants.bulkAdd(tenantsToInsert);
+      await DataService.bulkAdd('tenants', tenantsToInsert);
       toast.success(`${tenantsToInsert.length} locataires importés avec succès`);
       setIsImportDialogOpen(false);
       setImportData('');
@@ -170,19 +170,40 @@ export default function Tenants() {
   };
   const handleDeleteTenant = async () => {
     if (!tenantToDelete) return;
+    
+    // Safety check for engagement
+    const hasContracts = contracts.some(c => c.tenantId === tenantToDelete);
+    if (hasContracts) {
+      toast.error("Impossible de supprimer : Ce locataire possède des contrats actifs ou archivés.");
+      setTenantToDelete(null);
+      return;
+    }
+
     try {
       await DataService.delete('tenants', tenantToDelete);
-      toast.success('Locataire supprimé avec succès');
+      toast.success('Dossier locataire supprimé avec succès');
       setTenantToDelete(null);
     } catch (e) {
       toast.error('Erreur lors de la suppression');
     }
   };
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   const filteredTenants = tenants.filter(t => 
     t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    t.company.toLowerCase().includes(searchTerm.toLowerCase())
+    (t.company && t.company.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (t.idNumber && t.idNumber.toLowerCase().includes(searchTerm.toLowerCase()))
   );
+
+  const totalPages = Math.ceil(filteredTenants.length / itemsPerPage);
+  const paginatedTenants = filteredTenants.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  // Reset page when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   return (
     <div className="space-y-8 pb-20">
@@ -493,10 +514,13 @@ export default function Tenants() {
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input 
             placeholder="Filtrer par nom, gérant ou RCCM..." 
-            className="pl-12 h-12 rounded-2xl border-none bg-white shadow-sm ring-1 ring-black/5"
+            className="pl-12 h-12 rounded-2xl border-none bg-white shadow-sm ring-1 ring-black/5 text-xs font-black uppercase tracking-tighter"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
+        </div>
+        <div className="text-[10px] uppercase font-black text-muted-foreground mr-4">
+          Affichage: <span className="text-primary">{paginatedTenants.length}</span> sur {filteredTenants.length} Locataires
         </div>
       </div>
 
@@ -512,7 +536,7 @@ export default function Tenants() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredTenants.map((tenant) => {
+            {paginatedTenants.map((tenant) => {
               const hasActiveContract = contracts.some(c => c.tenantId === tenant.id && c.status === 'active');
               
               return (
@@ -572,6 +596,9 @@ export default function Tenants() {
                         <DropdownMenuItem onClick={() => openDetails(tenant)} className="rounded-xl cursor-pointer font-bold gap-3 py-2.5">
                           <Eye className="w-4 h-4 text-primary mr-2" /> Audit du Dossier
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => navigate(`/tenants/${tenant.id}`)} className="rounded-xl cursor-pointer font-bold gap-3 py-2.5">
+                          <Receipt className="w-4 h-4 text-blue-600 mr-2" /> Situation Bancaire
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => openEditDialog(tenant)} className="rounded-xl cursor-pointer font-bold gap-3 py-2.5">
                           <Edit className="w-4 h-4 text-muted-foreground mr-2" /> Modification Admin
                         </DropdownMenuItem>
@@ -602,6 +629,34 @@ export default function Tenants() {
             )}
           </TableBody>
         </Table>
+
+        {totalPages > 1 && (
+          <div className="p-8 border-t bg-muted/20 flex items-center justify-between">
+            <p className="text-[10px] font-black uppercase tracking-widest opacity-60 italic">
+              Page <span className="text-primary">{currentPage}</span> sur {totalPages}
+            </p>
+            <div className="flex gap-4">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="rounded-xl font-black uppercase tracking-widest text-[9px] h-10 px-6 border-2"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(prev => prev - 1)}
+              >
+                Précédent
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="rounded-xl font-black uppercase tracking-widest text-[9px] h-10 px-6 border-2"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(prev => prev + 1)}
+              >
+                Suivant
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
 
       <ConfirmDialog 

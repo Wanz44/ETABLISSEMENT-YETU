@@ -42,6 +42,18 @@ export const DataService = {
   },
 
   /**
+   * Add multiple documents to local storage
+   */
+  async bulkAdd(path: string, items: any[]) {
+    try {
+      return await (dbLocal as any)[path].bulkAdd(items);
+    } catch (error) {
+      console.error(`Error bulk adding to ${path}:`, error);
+      throw error;
+    }
+  },
+
+  /**
    * Fetch all documents from local storage
    */
   async getAll<T>(path: string): Promise<T[]> {
