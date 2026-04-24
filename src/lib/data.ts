@@ -9,6 +9,10 @@ export const DataService = {
    */
   async add(path: string, data: any) {
     try {
+      // Remove undefined or null id to let Dexie generate it if needed for tables with auto-increment
+      if (data && (data.id === undefined || data.id === null)) {
+        delete data.id;
+      }
       const localId = await (dbLocal as any)[path].add(data);
       return localId;
     } catch (error) {
@@ -46,7 +50,14 @@ export const DataService = {
    */
   async bulkAdd(path: string, items: any[]) {
     try {
-      return await (dbLocal as any)[path].bulkAdd(items);
+      const cleanItems = items.map(item => {
+        const clean = { ...item };
+        if (clean.id === undefined || clean.id === null) {
+          delete clean.id;
+        }
+        return clean;
+      });
+      return await (dbLocal as any)[path].bulkAdd(cleanItems);
     } catch (error) {
       console.error(`Error bulk adding to ${path}:`, error);
       throw error;

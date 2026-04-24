@@ -20,7 +20,7 @@ export class AppDatabase extends Dexie {
 
   constructor() {
     super('YetuLocalDB');
-    this.version(6).stores({
+    this.version(7).stores({
       centers: '++id, name, location',
       buildings: '++id, centerId, name',
       units: '++id, buildingId, centerId, name, status',

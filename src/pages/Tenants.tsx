@@ -90,6 +90,7 @@ export default function Tenants() {
         toast.success('Dossier locataire mis à jour');
       } else {
         await DataService.add('tenants', {
+          id: crypto.randomUUID(),
           ...newTenant,
           createdAt: new Date().toISOString()
         });
