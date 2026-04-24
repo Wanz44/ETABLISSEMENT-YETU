@@ -14,16 +14,14 @@ import {
   User as UserIcon,
   ChevronLeft,
   ChevronRight,
-  Sun,
-  Moon,
   TrendingDown,
   BarChart3,
-  ShieldCheck
+  ShieldCheck,
+  DatabaseZap
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Sheet, SheetContent, SheetTrigger } from './ui/sheet';
 import { cn } from '../lib/utils';
-import { useTheme } from 'next-themes';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface NavItemProps {
@@ -70,12 +68,8 @@ interface NavItemProps {
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { profile } = useAuth();
   const location = useLocation();
-  const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
   const { isSidebarCollapsed: collapsed, setSidebarCollapsed: setCollapsed } = useAppStore();
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  useEffect(() => setMounted(true), []);
 
   const navItems = [
     { to: '/', icon: LayoutDashboard, label: 'Tableau de bord' },
@@ -87,6 +81,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { to: '/expenses', icon: TrendingDown, label: 'Dépenses' },
     { to: '/reports', icon: BarChart3, label: 'Rapports' },
     { to: '/analytics', icon: PieChart, label: 'Analyses Pro' },
+    { to: '/data-analytic', icon: DatabaseZap, label: 'Data Analytic' },
     { to: '/database', icon: ShieldCheck, label: 'Stockage Local' },
   ];
 
@@ -121,16 +116,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         ))}
       </nav>
 
-      <div className={cn("px-3 mt-auto pt-6 border-t space-y-4", collapsed && !isMobile && "px-2")}>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="w-full justify-center hover:bg-muted rounded-xl"
-          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-        >
-          {mounted && (theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />)}
-        </Button>
-
+      <div className={cn("px-3 mt-auto pt-6 border-t", collapsed && !isMobile && "px-2")}>
         <div className={cn(
           "flex items-center gap-3 px-3 py-3 bg-muted/50 rounded-2xl transition-all duration-300",
           collapsed && !isMobile ? "px-2 justify-center" : ""

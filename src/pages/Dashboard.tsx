@@ -260,7 +260,7 @@ export default function Dashboard() {
           <section>
             <h3 className="text-xl font-bold flex items-center gap-2 mb-4">
               <Bell className="w-5 h-5 text-primary" />
-              Intelligence
+              Alertes Flux
             </h3>
             <div className="space-y-3">
               {notifications.map((notif) => (

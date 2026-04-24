@@ -31,7 +31,7 @@ export interface Unit {
   centerId: string;
   name: string;
   type: 'shop' | 'office';
-  status: 'occupied' | 'free' | 'maintenance';
+  status: 'occupied' | 'free' | 'maintenance' | string;
   floor: string;
 }
 
@@ -104,6 +104,17 @@ export interface AppSettings {
   id: string;
   dashboardResetDate: string;
   lastBackupDate?: string;
+  features?: {
+    showUnitStatusCounts?: boolean;
+    enableMaintenanceTracking?: boolean;
+    allowCustomUnitStatuses?: boolean;
+  };
+  unitStatuses?: Array<{
+    id: string;
+    label: string;
+    color: string;
+    isActive: boolean;
+  }>;
 }
 
 export interface Expense {

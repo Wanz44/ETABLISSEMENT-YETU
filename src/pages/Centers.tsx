@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Building2, MapPin, MoreVertical, Edit, Trash2, Home, Search, LayoutGrid } from 'lucide-react';
+import { Plus, Building2, MapPin, MoreVertical, Edit, Trash2, Home, Search, LayoutGrid, Settings, Check, X, Building, AlertCircle } from 'lucide-react';
 import { Button } from '../components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '../components/ui/card';
 import { 
   Dialog, 
   DialogContent, 
@@ -35,10 +35,11 @@ import {
   SelectTrigger, 
   SelectValue 
 } from '../components/ui/select';
+import { Checkbox } from '../components/ui/checkbox';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { dbLocal } from '../lib/db';
 import { DataService } from '../lib/data';
-import { Center, Building, Unit } from '../types';
+import { Center, Building as BuildingType, Unit, AppSettings } from '../types';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
@@ -50,19 +51,62 @@ export default function Centers() {
       centers: await dbLocal.centers.toArray(),
       buildings: await dbLocal.buildings.toArray(),
       units: await dbLocal.units.toArray(),
+      settings: await dbLocal.settings.get('global-settings'),
     };
-  }) || { centers: [], buildings: [], units: [] };
+  }) || { centers: [], buildings: [], units: [], settings: null };
 
-  const { centers, buildings, units } = data;
+  const { centers, buildings, units, settings } = data;
+  
+  // Initialize settings if they don't exist
+  useEffect(() => {
+    const initSettings = async () => {
+      const existing = await dbLocal.settings.get('global-settings');
+      if (!existing) {
+        try {
+          await dbLocal.settings.put({
+            id: 'global-settings',
+            dashboardResetDate: new Date().toISOString(),
+            features: {
+              showUnitStatusCounts: true,
+              enableMaintenanceTracking: true,
+              allowCustomUnitStatuses: true
+            },
+            unitStatuses: [
+              { id: 'free', label: 'Libre', color: 'bg-amber-500', isActive: true },
+              { id: 'occupied', label: 'Occupé', color: 'bg-emerald-500', isActive: true },
+              { id: 'maintenance', label: 'Maintenance', color: 'bg-rose-500', isActive: true }
+            ]
+          });
+        } catch (err) {
+          console.warn('Settings already initialized or error during init:', err);
+        }
+      }
+    };
+    initSettings();
+  }, []);
+
+  const handleUpdateFeature = async (featureKey: string, value: boolean) => {
+    const currentSettings = settings || { id: 'global-settings', features: {} };
+    const updatedSettings = {
+      ...currentSettings,
+      features: {
+        ...(currentSettings.features || {}),
+        [featureKey]: value
+      }
+    };
+    await dbLocal.settings.put(updatedSettings as AppSettings);
+    toast.success('Paramètre mis à jour');
+  };
   
   const [searchTerm, setSearchTerm] = useState('');
   const [isCenterDialogOpen, setIsCenterDialogOpen] = useState(false);
   const [isBuildingDialogOpen, setIsBuildingDialogOpen] = useState(false);
   const [isUnitDialogOpen, setIsUnitDialogOpen] = useState(false);
+  const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{id: any, type: 'centers' | 'buildings' | 'units', name: string} | null>(null);
   
-  const [editingItem, setEditingItem] = useState<{id: any, type: 'centers' | 'buildings' | 'units'} | null>(null);
+  const [editingItem, setEditingItem] = useState<{id: any, type: 'centers' | 'buildings' | 'units' | 'status'} | null>(null);
 
   const [newCenter, setNewCenter] = useState({ name: '', location: '', description: '' });
   const [newBuilding, setNewBuilding] = useState({ centerId: '', name: '', description: '' });
@@ -74,6 +118,7 @@ export default function Centers() {
     status: 'free' as const, 
     floor: '' 
   });
+  const [newStatus, setNewStatus] = useState({ id: '', label: '', color: 'bg-primary', isActive: true });
 
   const handleSaveCenter = async () => {
     if (!newCenter.name) {
@@ -145,13 +190,79 @@ export default function Centers() {
     }
   };
 
+  const handleSaveStatus = async () => {
+    if (!newStatus.label) {
+      toast.error('Le libellé est obligatoire');
+      return;
+    }
+    try {
+      const currentSettings = settings || { id: 'global-settings', unitStatuses: [] };
+      let updatedStatuses = [...(currentSettings.unitStatuses || [])];
+      
+      if (editingItem && editingItem.type === 'status') {
+        updatedStatuses = updatedStatuses.map(s => s.id === editingItem.id ? { ...newStatus, id: editingItem.id } : s);
+        toast.success('Statut mis à jour');
+      } else {
+        const id = newStatus.label.toLowerCase().replace(/\s+/g, '-');
+        if (updatedStatuses.some(s => s.id === id)) {
+          toast.error('Un statut avec ce nom existe déjà');
+          return;
+        }
+        updatedStatuses.push({ ...newStatus, id });
+        toast.success('Nouveau statut ajouté');
+      }
+      
+      await dbLocal.settings.put({ ...currentSettings, unitStatuses: updatedStatuses } as AppSettings);
+      setIsStatusDialogOpen(false);
+      setEditingItem(null);
+      setNewStatus({ id: '', label: '', color: 'bg-primary', isActive: true });
+    } catch (e) {
+      toast.error('Erreur lors de l\'enregistrement du statut');
+    }
+  };
+
+  const handleToggleStatus = async (statusId: string) => {
+    try {
+      const currentSettings = settings;
+      if (!currentSettings) return;
+      
+      const updatedStatuses = currentSettings.unitStatuses?.map(s => 
+        s.id === statusId ? { ...s, isActive: !s.isActive } : s
+      );
+      
+      await dbLocal.settings.put({ ...currentSettings, unitStatuses: updatedStatuses } as AppSettings);
+      toast.success('État du statut modifié');
+    } catch (e) {
+      toast.error('Erreur lors de la modification');
+    }
+  };
+
+  const handleDeleteStatus = async (statusId: string) => {
+    // Protection for default statuses
+    if (['free', 'occupied', 'maintenance'].includes(statusId)) {
+      toast.error('Les statuts système ne peuvent pas être supprimés');
+      return;
+    }
+    
+    try {
+      const currentSettings = settings;
+      if (!currentSettings) return;
+      
+      const updatedStatuses = currentSettings.unitStatuses?.filter(s => s.id !== statusId);
+      await dbLocal.settings.put({ ...currentSettings, unitStatuses: updatedStatuses } as AppSettings);
+      toast.success('Statut supprimé');
+    } catch (e) {
+      toast.error('Erreur lors de la suppression');
+    }
+  };
+
   const openEditCenter = (center: Center) => {
     setEditingItem({ id: center.id, type: 'centers' });
     setNewCenter({ name: center.name, location: center.location, description: center.description || '' });
     setIsCenterDialogOpen(true);
   };
 
-  const openEditBuilding = (building: Building) => {
+  const openEditBuilding = (building: BuildingType) => {
     setEditingItem({ id: building.id, type: 'buildings' });
     setNewBuilding({ centerId: building.centerId, name: building.name, description: building.description || '' });
     setIsBuildingDialogOpen(true);
@@ -377,16 +488,25 @@ export default function Centers() {
                   </div>
                   <div className="grid gap-2">
                     <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Statut</Label>
-                    <Select value={newUnit.status} onValueChange={(val: any) => setNewUnit({...newUnit, status: val})}>
-                      <SelectTrigger className="rounded-xl h-12 border-2 bg-muted/30 uppercase font-black text-[10px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="free">LIBRE</SelectItem>
-                        <SelectItem value="occupied">OCCUPÉ</SelectItem>
-                        <SelectItem value="maintenance">MAINTENANCE</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      <Select value={newUnit.status} onValueChange={(val: any) => setNewUnit({...newUnit, status: val})}>
+                        <SelectTrigger className="rounded-xl h-12 border-2 bg-muted/30 uppercase font-black text-[10px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {settings?.unitStatuses?.filter(s => s.isActive).map(status => (
+                            <SelectItem key={status.id} value={status.id} className="uppercase font-black text-[10px]">
+                              {status.label}
+                            </SelectItem>
+                          ))}
+                          {(!settings || !settings.unitStatuses) && (
+                            <>
+                              <SelectItem value="free">LIBRE</SelectItem>
+                              <SelectItem value="occupied">OCCUPÉ</SelectItem>
+                              <SelectItem value="maintenance">MAINTENANCE</SelectItem>
+                            </>
+                          )}
+                        </SelectContent>
+                      </Select>
                   </div>
                 </div>
               </div>
@@ -474,58 +594,84 @@ export default function Centers() {
       </div>
 
       <Tabs defaultValue="centers" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 max-w-md">
-          <TabsTrigger value="centers">Centres</TabsTrigger>
-          <TabsTrigger value="buildings">Immeubles</TabsTrigger>
-          <TabsTrigger value="units">Unités</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-4 max-w-lg">
+          <TabsTrigger value="centers" className="font-bold">Centres</TabsTrigger>
+          <TabsTrigger value="buildings" className="font-bold">Immeubles</TabsTrigger>
+          <TabsTrigger value="units" className="font-bold">Unités</TabsTrigger>
+          <TabsTrigger value="settings" className="font-bold gap-2">
+            <Settings className="w-4 h-4" />
+            Config
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="centers" className="mt-6 animate-in slide-in-from-bottom-2 duration-300">
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {filteredCenters.map((center) => (
-              <Card key={center.id} className="overflow-hidden border border-[#E1E5EB] shadow-sm rounded-2xl group hover:shadow-md transition-all duration-300 bg-white">
-                <CardHeader className="pb-4 border-b border-[#F3F5F8]">
-                  <div className="flex items-start justify-between">
-                    <div className="p-2.5 bg-primary/5 rounded-xl group-hover:bg-primary transition-colors duration-300">
-                      <Building2 className="w-5 h-5 text-primary group-hover:text-white" />
+            {filteredCenters.map((center) => {
+              const centerUnits = units.filter(u => u.centerId === center.id);
+              const counts = {
+                occupied: centerUnits.filter(u => u.status === 'occupied').length,
+                free: centerUnits.filter(u => u.status === 'free').length,
+                maintenance: centerUnits.filter(u => u.status === 'maintenance').length,
+              };
+
+              return (
+                <Card key={center.id} className="overflow-hidden border border-[#E1E5EB] shadow-sm rounded-2xl group hover:shadow-md transition-all duration-300 bg-white">
+                  <CardHeader className="pb-4 border-b border-[#F3F5F8]">
+                    <div className="flex items-start justify-between">
+                      <div className="p-2.5 bg-primary/5 rounded-xl group-hover:bg-primary transition-colors duration-300">
+                        <Building2 className="w-5 h-5 text-primary group-hover:text-white" />
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger render={
+                          <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full hover:bg-muted">
+                            <MoreVertical className="w-5 h-5" />
+                          </Button>
+                        } />
+                        <DropdownMenuContent align="end" className="rounded-2xl border-none shadow-2xl p-2">
+                          <DropdownMenuItem onClick={() => openEditCenter(center)} className="rounded-xl cursor-pointer">
+                            <Edit className="w-4 h-4 mr-3 text-muted-foreground" /> <span className="font-bold">Modifier</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive rounded-xl cursor-pointer" onClick={() => {
+                            setItemToDelete({ id: center.id, type: 'centers', name: center.name });
+                            setIsConfirmOpen(true);
+                          }}>
+                            <Trash2 className="w-4 h-4 mr-3" /> <span className="font-bold">Supprimer</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger render={
-                        <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full hover:bg-muted">
-                          <MoreVertical className="w-5 h-5" />
-                        </Button>
-                      } />
-                      <DropdownMenuContent align="end" className="rounded-2xl border-none shadow-2xl p-2">
-                        <DropdownMenuItem onClick={() => openEditCenter(center)} className="rounded-xl cursor-pointer">
-                          <Edit className="w-4 h-4 mr-3 text-muted-foreground" /> <span className="font-bold">Modifier</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive rounded-xl cursor-pointer" onClick={() => {
-                          setItemToDelete({ id: center.id, type: 'centers', name: center.name });
-                          setIsConfirmOpen(true);
-                        }}>
-                          <Trash2 className="w-4 h-4 mr-3" /> <span className="font-bold">Supprimer</span>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                  <h4 className="mt-4 text-xl font-bold text-[#1A1F36] tracking-tight truncate">{center.name}</h4>
-                  <div className="flex items-center text-[10px] font-bold text-[#697386] mt-1 uppercase tracking-widest">
-                    <MapPin className="w-3 h-3 mr-1 text-primary" />
-                    {center.location}
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3 pt-6">
-                  <div className="flex justify-between items-center p-3.5 bg-[#F8F9FA] rounded-xl border border-[#E1E5EB]">
-                    <span className="text-[10px] font-bold uppercase text-[#697386] tracking-widest">Immeubles audités</span>
-                    <span className="font-bold text-[#1A1F36]">{buildings.filter(b => b.centerId === center.id).length}</span>
-                  </div>
-                  <div className="flex justify-between items-center p-3.5 bg-[#F8F9FA] rounded-xl border border-[#E1E5EB]">
-                    <span className="text-[10px] font-bold uppercase text-[#697386] tracking-widest">Unités répertoriées</span>
-                    <span className="font-bold text-[#1A1F36]">{units.filter(u => u.centerId === center.id).length}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                    <h4 className="mt-4 text-xl font-bold text-[#1A1F36] tracking-tight truncate">{center.name}</h4>
+                    <div className="flex items-center text-[10px] font-bold text-[#697386] mt-1 uppercase tracking-widest">
+                      <MapPin className="w-3 h-3 mr-1 text-primary" />
+                      {center.location}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4 pt-6">
+                    {settings?.features?.showUnitStatusCounts && (
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="flex flex-col items-center justify-center p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+                          <span className="text-[9px] font-black uppercase text-emerald-600 mb-1">Occupées</span>
+                          <span className="font-black text-lg text-emerald-700">{counts.occupied}</span>
+                        </div>
+                        <div className="flex flex-col items-center justify-center p-3 bg-amber-50 rounded-xl border border-amber-100">
+                          <span className="text-[9px] font-black uppercase text-amber-600 mb-1">Libres</span>
+                          <span className="font-black text-lg text-amber-700">{counts.free}</span>
+                        </div>
+                        <div className="flex flex-col items-center justify-center p-3 bg-rose-50 rounded-xl border border-rose-100">
+                          <span className="text-[9px] font-black uppercase text-rose-600 mb-1">Maint.</span>
+                          <span className="font-black text-lg text-rose-700">{counts.maintenance}</span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="flex justify-between items-center p-3.5 bg-[#F8F9FA] rounded-xl border border-[#E1E5EB]">
+                      <span className="text-[10px] font-bold uppercase text-[#697386] tracking-widest">Architecture</span>
+                      <span className="font-bold text-[#1A1F36]">{buildings.filter(b => b.centerId === center.id).length} Blocs</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
             {centers.length === 0 && (
               <div className="col-span-full py-12 text-center border-2 border-dashed rounded-xl">
                 <Building2 className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-20" />
@@ -680,6 +826,157 @@ export default function Centers() {
             </Table>
           </Card>
         </TabsContent>
+        <TabsContent value="settings" className="mt-6 animate-in slide-in-from-bottom-2 duration-300">
+          <div className="grid gap-8 md:grid-cols-2">
+            <Card className="rounded-3xl border-none shadow-xl bg-white overflow-hidden">
+              <CardHeader className="bg-primary/5 p-6 border-b">
+                <CardTitle className="text-xl font-black tracking-tighter uppercase flex items-center gap-2">
+                  <Settings className="w-5 h-5" />
+                  Paramétrage des Fonctionnalités
+                </CardTitle>
+                <CardDescription className="text-xs font-bold uppercase opacity-60">Configuration des options d'affichage et de comportement</CardDescription>
+              </CardHeader>
+              <CardContent className="p-8 space-y-8">
+                <div className="flex items-center justify-between p-4 bg-muted/20 rounded-2xl border-2 border-transparent hover:border-primary/20 transition-all group">
+                  <div className="space-y-1">
+                    <Label className="font-black text-sm uppercase tracking-tighter group-hover:text-primary transition-colors">Affichage des statuts d'unités</Label>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase leading-tight">Affiche les compteurs (Libre, Occupé, Maintenance) sur les cartes des centres</p>
+                  </div>
+                  <Checkbox 
+                    checked={settings?.features?.showUnitStatusCounts} 
+                    onCheckedChange={(checked) => handleUpdateFeature('showUnitStatusCounts', !!checked)}
+                    className="w-6 h-6 rounded-lg text-primary border-2"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-4 bg-muted/20 rounded-2xl border-2 border-transparent hover:border-primary/20 transition-all group">
+                  <div className="space-y-1">
+                    <Label className="font-black text-sm uppercase tracking-tighter group-hover:text-primary transition-colors">Suivi de maintenance avancé</Label>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase leading-tight">Active les options de gestion technique pour les unités en maintenance</p>
+                  </div>
+                  <Checkbox 
+                    checked={settings?.features?.enableMaintenanceTracking} 
+                    onCheckedChange={(checked) => handleUpdateFeature('enableMaintenanceTracking', !!checked)}
+                    className="w-6 h-6 rounded-lg text-primary border-2"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-4 bg-muted/20 rounded-2xl border-2 border-transparent hover:border-primary/20 transition-all group">
+                  <div className="space-y-1">
+                    <Label className="font-black text-sm uppercase tracking-tighter group-hover:text-primary transition-colors">Statuts personnalisés</Label>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase leading-tight">Autoriser l'ajout de nouveaux statuts pour les unités locatives</p>
+                  </div>
+                  <Checkbox 
+                    checked={settings?.features?.allowCustomUnitStatuses} 
+                    onCheckedChange={(checked) => handleUpdateFeature('allowCustomUnitStatuses', !!checked)}
+                    className="w-6 h-6 rounded-lg text-primary border-2"
+                  />
+                </div>
+
+                {settings?.features?.allowCustomUnitStatuses && (
+                  <div className="space-y-4 pt-4 border-t border-dashed">
+                    <div className="flex items-center justify-between">
+                      <Label className="font-black text-[10px] uppercase tracking-widest text-[#697386]">Gestion des Statuts</Label>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-7 text-[9px] font-black uppercase tracking-widest bg-primary/5 rounded-lg"
+                        onClick={() => {
+                          setEditingItem(null);
+                          setNewStatus({ id: '', label: '', color: 'bg-emerald-500', isActive: true });
+                          setIsStatusDialogOpen(true);
+                        }}
+                      >
+                        <Plus className="w-3 h-3 mr-1" /> Ajouter
+                      </Button>
+                    </div>
+                    <div className="space-y-2">
+                      {settings?.unitStatuses?.map((status) => (
+                        <div key={status.id} className="flex items-center justify-between p-3 bg-white rounded-xl border border-[#E1E5EB] shadow-sm">
+                          <div className="flex items-center gap-3">
+                            <div className={cn("w-3 h-3 rounded-full shadow-sm", status.color)} />
+                            <span className="text-xs font-bold uppercase tracking-tight text-[#1A1F36]">{status.label}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                             <Badge 
+                               variant="outline" 
+                               className={cn("text-[8px] font-black uppercase px-1.5 cursor-pointer", status.isActive ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600")}
+                               onClick={() => handleToggleStatus(status.id)}
+                             >
+                               {status.isActive ? 'Actif' : 'Inactif'}
+                             </Badge>
+                             <Button 
+                               variant="ghost" 
+                               size="icon" 
+                               className="h-6 w-6 rounded-md hover:bg-muted"
+                               onClick={() => {
+                                 setEditingItem({ id: status.id, type: 'status' });
+                                 setNewStatus({ ...status });
+                                 setIsStatusDialogOpen(true);
+                               }}
+                             >
+                               <Edit className="w-3 h-3" />
+                             </Button>
+                             {!['free', 'occupied', 'maintenance'].includes(status.id) && (
+                               <Button 
+                                 variant="ghost" 
+                                 size="icon" 
+                                 className="h-6 w-6 rounded-md hover:bg-rose-50 text-rose-600"
+                                 onClick={() => handleDeleteStatus(status.id)}
+                               >
+                                 <Trash2 className="w-3 h-3" />
+                               </Button>
+                             )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-3xl border-none shadow-xl bg-white overflow-hidden">
+              <CardHeader className="bg-primary/5 p-6 border-b">
+                <CardTitle className="text-xl font-black tracking-tighter uppercase">Comportement & États</CardTitle>
+                <CardDescription className="text-xs font-bold uppercase opacity-60">Gestion des états du système et notifications</CardDescription>
+              </CardHeader>
+              <CardContent className="p-8">
+                <div className="space-y-6">
+                  <div className="p-6 bg-primary/5 rounded-3xl border-2 border-primary/10">
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="p-3 bg-primary rounded-2xl text-white">
+                        <AlertCircle className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h5 className="font-black text-sm uppercase tracking-tight">Mode Audit</h5>
+                        <p className="text-[10px] font-bold text-muted-foreground">Toutes les actions sont tracées pour la conformité</p>
+                      </div>
+                    </div>
+                    <Button variant="outline" className="w-full rounded-xl font-black uppercase text-[10px] tracking-widest h-10 border-2">Consulter les logs</Button>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Fréquence de rafraîchissement</Label>
+                    <Select defaultValue="realtime">
+                      <SelectTrigger className="rounded-xl h-12 border-2 bg-muted/30">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="realtime">TEMPS RÉEL (FLUX DIRECT)</SelectItem>
+                        <SelectItem value="5min">TOUTES LES 5 MINUTES</SelectItem>
+                        <SelectItem value="hourly">TOUTES LES HEURES</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </CardContent>
+              <CardFooter className="p-8 pt-0">
+                <p className="text-[9px] font-black uppercase text-muted-foreground italic text-center w-full">Certaines modifications peuvent nécessiter un redémarrage du module</p>
+              </CardFooter>
+            </Card>
+          </div>
+        </TabsContent>
       </Tabs>
 
       <ConfirmDialog 
@@ -695,6 +992,51 @@ export default function Centers() {
         }
         onConfirm={handleDeleteItem}
       />
+
+      <Dialog open={isStatusDialogOpen} onOpenChange={setIsStatusDialogOpen}>
+        <DialogContent className="rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden max-w-[400px]">
+          <div className="bg-primary p-6 text-primary-foreground">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-black uppercase tracking-widest">
+                {editingItem ? 'Modifier Statut' : 'Nouveau Statut'}
+              </DialogTitle>
+            </DialogHeader>
+          </div>
+          <div className="p-8 space-y-6">
+            <div className="grid gap-2">
+              <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Désignation du statut</Label>
+              <Input 
+                value={newStatus.label}
+                onChange={(e) => setNewStatus({...newStatus, label: e.target.value})}
+                placeholder="ex: En Rénovation, Réservé..."
+                className="rounded-xl h-12 border-2 bg-muted/30 font-bold"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Code Couleur (Tailwind)</Label>
+              <Select value={newStatus.color} onValueChange={(val) => setNewStatus({...newStatus, color: val})}>
+                <SelectTrigger className="rounded-xl h-12 border-2 bg-muted/30">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="bg-emerald-500">VERT EMERAUDE</SelectItem>
+                  <SelectItem value="bg-amber-500">AMBRE / JAUNE</SelectItem>
+                  <SelectItem value="bg-rose-500">ROSE / ROUGE</SelectItem>
+                  <SelectItem value="bg-blue-500">BLEU AZUR</SelectItem>
+                  <SelectItem value="bg-violet-500">VIOLET</SelectItem>
+                  <SelectItem value="bg-slate-500">GRIS</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="p-8 pt-0 flex gap-4">
+            <Button variant="outline" className="flex-1 rounded-2xl h-12 font-black uppercase text-[10px]" onClick={() => setIsStatusDialogOpen(false)}>Annuler</Button>
+            <Button onClick={handleSaveStatus} className="flex-[2] rounded-2xl h-12 font-black uppercase text-[10px] shadow-xl shadow-primary/20">
+              {editingItem ? 'Mettre à jour' : 'Enregistrer'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

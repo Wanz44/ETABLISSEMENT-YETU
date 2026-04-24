@@ -11,6 +11,7 @@ import Invoices from './pages/Invoices';
 import Payments from './pages/Payments';
 import Expenses from './pages/Expenses';
 import Analytics from './pages/Analytics';
+import DataAnalytics from './pages/DataAnalytics';
 import Reports from './pages/Reports';
 import LocalDatabase from './pages/LocalDatabase';
 import { Toaster } from './components/ui/sonner';
@@ -30,6 +31,7 @@ export default function App() {
             <Route path="/payments" element={<Payments />} />
             <Route path="/expenses" element={<Expenses />} />
             <Route path="/analytics" element={<Analytics />} />
+            <Route path="/data-analytic" element={<DataAnalytics />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/database" element={<LocalDatabase />} />
             <Route path="*" element={<Navigate to="/" />} />

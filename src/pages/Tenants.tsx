@@ -161,7 +161,7 @@ export default function Tenants() {
         createdAt: new Date().toISOString()
       }));
 
-      await DataService.bulkAdd('tenants', tenantsToInsert);
+      await DataService.bulkPut('tenants', tenantsToInsert);
       toast.success(`${tenantsToInsert.length} locataires importés avec succès`);
       setIsImportDialogOpen(false);
       setImportData('');

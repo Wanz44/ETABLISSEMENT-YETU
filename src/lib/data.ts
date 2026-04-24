@@ -48,7 +48,7 @@ export const DataService = {
   /**
    * Add multiple documents to local storage
    */
-  async bulkAdd(path: string, items: any[]) {
+  async bulkPut(path: string, items: any[]) {
     try {
       const cleanItems = items.map(item => {
         const clean = { ...item };
@@ -57,9 +57,9 @@ export const DataService = {
         }
         return clean;
       });
-      return await (dbLocal as any)[path].bulkAdd(cleanItems);
+      return await (dbLocal as any)[path].bulkPut(cleanItems);
     } catch (error) {
-      console.error(`Error bulk adding to ${path}:`, error);
+      console.error(`Error bulk putting to ${path}:`, error);
       throw error;
     }
   },
