@@ -15,7 +15,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // Default admin profile for the app without login
 const DEFAULT_ADMIN: UserProfile = {
   uid: 'admin-default',
-  name: 'Administrateur YETU (Local)',
+  name: 'Administrateur GRACE (Local)',
   email: 'admin@yetu.com',
   role: 'admin',
   createdAt: new Date().toISOString(),

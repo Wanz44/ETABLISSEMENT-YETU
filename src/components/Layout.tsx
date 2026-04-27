@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { useAppStore } from '../store/useAppStore';
+import { dbLocal } from '../lib/db';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { 
   PieChart,
   LayoutDashboard, 
@@ -17,7 +19,13 @@ import {
   TrendingDown,
   BarChart3,
   ShieldCheck,
-  DatabaseZap
+  DatabaseZap,
+  Settings,
+  Search as SearchIcon,
+  X,
+  Building,
+  User,
+  ArrowRight
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Sheet, SheetContent, SheetTrigger } from './ui/sheet';
@@ -83,9 +91,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { to: '/analytics', icon: PieChart, label: 'Analyses Pro' },
     { to: '/data-analytic', icon: DatabaseZap, label: 'Data Analytic' },
     { to: '/database', icon: ShieldCheck, label: 'Stockage Local' },
+    { to: '/settings', icon: Settings, label: 'Paramètres' },
   ];
 
-  const SidebarContent = ({ isMobile = false }: { isMobile?: boolean }) => (
+  const SidebarContent = ({ isMobile = false, onNavigate }: { isMobile?: boolean, onNavigate?: () => void }) => (
     <div className="flex flex-col h-full py-4">
       <div className={cn("px-6 mb-10 flex items-center gap-3", collapsed && !isMobile && "px-4 justify-center")}>
         <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center text-primary-foreground font-bold shadow-lg shadow-primary/20 shrink-0">
@@ -97,7 +106,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             animate={{ opacity: 1 }}
             className="flex flex-col"
           >
-            <h1 className="text-lg font-black text-[#1A1F36] tracking-tighter leading-none">YETU <span className="text-primary italic">BANK</span></h1>
+            <h1 className="text-lg font-black text-[#1A1F36] tracking-tighter leading-none">GRACE <span className="text-primary italic">BANK</span></h1>
             <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-1">Management Portal</p>
           </motion.div>
         )}
@@ -105,14 +114,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       <nav className={cn("flex-1 space-y-1", collapsed && !isMobile && "px-2")}>
         {navItems.map((item) => (
-          <NavItem 
-            key={item.to} 
-            to={item.to}
-            icon={item.icon}
-            label={item.label}
-            active={location.pathname === item.to} 
-            collapsed={collapsed && !isMobile}
-          />
+          <div key={item.to} onClick={onNavigate}>
+            <NavItem 
+              to={item.to}
+              icon={item.icon}
+              label={item.label}
+              active={location.pathname === item.to} 
+              collapsed={collapsed && !isMobile}
+            />
+          </div>
         ))}
       </nav>
 
@@ -155,6 +165,42 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </Button>
       </aside>
 
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+        {/* Top Header with Smart Search */}
+        <header className="h-20 bg-white border-b px-6 lg:px-10 flex items-center justify-between no-print shrink-0 z-30">
+          <div className="flex-1 max-w-2xl relative group">
+            <SmartSearch />
+          </div>
+          
+          <div className="flex items-center gap-4 ml-4">
+            <div className="flex flex-col items-end hidden sm:flex">
+              <span className="text-xs font-black uppercase tracking-tighter">Portefeuille Global</span>
+              <span className="text-[10px] text-muted-foreground font-bold italic">Audit au {new Date().toLocaleDateString('fr-FR')}</span>
+            </div>
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary border border-primary/20 shadow-inner">
+               <ShieldCheck className="w-5 h-5" />
+            </div>
+          </div>
+        </header>
+
+        {/* Scrollable Content Area */}
+        <main className="flex-1 overflow-y-auto">
+          <AnimatePresence mode="wait">
+            <motion.div 
+              key={location.pathname}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="p-6 lg:p-8 xl:p-10 max-w-7xl mx-auto w-full"
+            >
+              {children}
+            </motion.div>
+          </AnimatePresence>
+        </main>
+      </div>
+
       {/* Mobile Nav Trigger */}
       <div className="lg:hidden fixed bottom-6 right-6 z-50 no-print">
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -164,26 +210,159 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </Button>
           } />
           <SheetContent side="left" className="p-0 w-72 rounded-r-3xl border-none">
-            <SidebarContent isMobile />
+            <SidebarContent isMobile onNavigate={() => setMobileOpen(false)} />
           </SheetContent>
         </Sheet>
       </div>
+    </div>
+  );
+}
 
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col min-w-0">
-        <AnimatePresence mode="wait">
-          <motion.div 
-            key={location.pathname}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2 }}
-            className="flex-1 p-6 lg:p-8 xl:p-10 max-w-7xl mx-auto w-full"
+// Smart Search Component
+function SmartSearch() {
+  const [query, setQuery] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
+  const navigate = useNavigate();
+
+  const results = useLiveQuery(async () => {
+    if (query.length < 2) return null;
+    const q = query.toLowerCase();
+    
+    const centers = await dbLocal.centers.filter(c => c.name.toLowerCase().includes(q)).limit(3).toArray();
+    const tenants = await dbLocal.tenants.filter(t => t.name.toLowerCase().includes(q) || (t.company && t.company.toLowerCase().includes(q))).limit(3).toArray();
+    const contracts = await dbLocal.contracts.toArray(); // Get all to filter by tenant name later if needed, but let's stick to unit names or IDs
+    const filteredContracts = contracts.filter(c => c.id.toLowerCase().includes(q)).slice(0, 3);
+
+    return { centers, tenants, contracts: filteredContracts };
+  }, [query]);
+
+  const hasResults = results && (results.centers.length > 0 || results.tenants.length > 0 || results.contracts.length > 0);
+
+  return (
+    <div className="relative w-full">
+      <div className="relative">
+        <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
+        <input 
+          type="text"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setIsOpen(true);
+          }}
+          onFocus={() => setIsOpen(true)}
+          placeholder="Recherche intelligente (Centres, Locataires, Contrats...)"
+          className="w-full bg-muted/30 border-none rounded-2xl py-3 pl-12 pr-4 text-sm focus:bg-white focus:ring-2 focus:ring-primary/20 transition-all outline-none font-medium placeholder:text-muted-foreground/60"
+        />
+        {query && (
+          <button 
+            onClick={() => setQuery('')}
+            className="absolute right-4 top-1/2 -translate-y-1/2 hover:text-primary transition-colors"
           >
-            {children}
-          </motion.div>
-        </AnimatePresence>
-      </main>
+            <X className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+
+      <AnimatePresence>
+        {isOpen && query.length >= 2 && (
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-40 bg-black/5"
+              onClick={() => setIsOpen(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 10, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.95 }}
+              className="absolute top-full mt-2 w-full bg-white rounded-3xl shadow-2xl border border-muted/50 overflow-hidden z-50"
+            >
+              {!hasResults ? (
+                <div className="p-8 text-center">
+                  <p className="text-xs font-black uppercase text-muted-foreground italic mb-1">Aucune correspondance stratégique</p>
+                  <p className="text-[10px] text-muted-foreground font-medium">Affinez vos critères de recherche.</p>
+                </div>
+              ) : (
+                <div className="p-2 space-y-2">
+                  {results.centers.length > 0 && (
+                    <div>
+                      <h4 className="px-4 py-2 text-[10px] font-black uppercase tracking-widest text-[#697386] opacity-60">Pôles Commerciaux</h4>
+                      {results.centers.map(center => (
+                        <div 
+                          key={center.id}
+                          onClick={() => { navigate('/centers'); setQuery(''); setIsOpen(false); }}
+                          className="flex items-center justify-between p-3 rounded-xl hover:bg-primary/5 cursor-pointer group/item transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                              <Building className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-black uppercase tracking-tight">{center.name}</p>
+                              <p className="text-[10px] text-muted-foreground font-bold">{center.location}</p>
+                            </div>
+                          </div>
+                          <ArrowRight className="w-4 h-4 text-primary opacity-0 group-hover/item:opacity-100 transition-all -translate-x-2 group-hover/item:translate-x-0" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {results.tenants.length > 0 && (
+                    <div>
+                      <h4 className="px-4 py-2 text-[10px] font-black uppercase tracking-widest text-[#697386] opacity-60">Répertoire Locataires</h4>
+                      {results.tenants.map(tenant => (
+                        <div 
+                          key={tenant.id}
+                          onClick={() => { navigate(`/tenants/${tenant.id}`); setQuery(''); setIsOpen(false); }}
+                          className="flex items-center justify-between p-3 rounded-xl hover:bg-primary/5 cursor-pointer group/item transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                              <User className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-black uppercase tracking-tight">{tenant.name}</p>
+                              <p className="text-[10px] text-muted-foreground font-bold">{tenant.company || 'Compte Particulier'}</p>
+                            </div>
+                          </div>
+                          <ArrowRight className="w-4 h-4 text-primary opacity-0 group-hover/item:opacity-100 transition-all -translate-x-2 group-hover/item:translate-x-0" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {results.contracts.length > 0 && (
+                    <div>
+                      <h4 className="px-4 py-2 text-[10px] font-black uppercase tracking-widest text-[#697386] opacity-60">Titres Locatifs</h4>
+                      {results.contracts.map(contract => (
+                        <div 
+                          key={contract.id}
+                          onClick={() => { navigate('/contracts'); setQuery(''); setIsOpen(false); }}
+                          className="flex items-center justify-between p-3 rounded-xl hover:bg-primary/5 cursor-pointer group/item transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                              <FileText className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-black uppercase tracking-tight">Bail #{String(contract.id).slice(0, 8).toUpperCase()}</p>
+                              <p className="text-[10px] text-muted-foreground font-bold">Du {contract.startDate}</p>
+                            </div>
+                          </div>
+                          <ArrowRight className="w-4 h-4 text-primary opacity-0 group-hover/item:opacity-100 transition-all -translate-x-2 group-hover/item:translate-x-0" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

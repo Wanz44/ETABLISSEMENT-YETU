@@ -102,12 +102,38 @@ export default function Contracts() {
   );
 
   const handleSaveContract = async () => {
-    if (!newContract.tenantId || !newContract.unitId || !newContract.startDate || !newContract.rentAmount || !newContract.centerId) {
-      toast.error('Veuillez remplir tous les champs obligatoires');
+    if (!newContract.tenantId || !newContract.unitId || !newContract.startDate || !newContract.centerId) {
+      toast.error('Veuillez remplir tous les champs obligatoires (Locataire, Centre, Unité, Date d\'effet)');
       return;
     }
+
+    // Advanced Validation
+    if (newContract.rentAmount <= 0) {
+      toast.error('Le montant du loyer doit être un nombre strictement positif');
+      return;
+    }
+    if (newContract.depositAmount < 0) {
+      toast.error('Le montant de la caution (en mois) ne peut pas être négatif');
+      return;
+    }
+    if (newContract.endDate && new Date(newContract.startDate) >= new Date(newContract.endDate)) {
+      toast.error('La date de début d\'effet doit être antérieure à la date de fin (échéance)');
+      return;
+    }
+
+    if (!confirm(isEditingContract ? 'Enregistrer les modifications apportées à ce contrat de bail ?' : 'Souhaitez-vous finaliser l\'enregistrement de ce nouveau contrat ?')) {
+      return;
+    }
+
     try {
       if (isEditingContract && editingContractId) {
+        // Find existing contract to compare unit changes
+        const existingContract = contracts.find(c => c.id === editingContractId);
+        if (existingContract && existingContract.unitId !== newContract.unitId) {
+          // If unit changed, free the old one and occupy the new one
+          await DataService.update('units', existingContract.unitId, { status: 'free' });
+          await DataService.update('units', newContract.unitId, { status: 'occupied' });
+        }
         await DataService.update('contracts', editingContractId, newContract);
         toast.success('Bail mis à jour avec succès');
       } else {
@@ -144,6 +170,9 @@ export default function Contracts() {
   };
 
   const handleResiliate = async (id: string, unitId: string) => {
+    if (!confirm('Êtes-vous certain de vouloir PRONONCER LA RÉSILIATION de ce contrat ? Cette action libérera l\'unité locative.')) {
+      return;
+    }
     try {
       await DataService.update('contracts', id, { status: 'terminated' });
       await DataService.update('units', unitId, { status: 'free' });
@@ -219,7 +248,7 @@ export default function Contracts() {
     doc.setFont('helvetica', 'bold');
     doc.text('BAILLEUR:', 20, 65);
     doc.setFont('helvetica', 'normal');
-    doc.text('YETU ADMIN / GESTION IMMOBILIERE', 60, 65);
+    doc.text('GRACE ADMIN / GESTION IMMOBILIERE', 60, 65);
 
     doc.setFont('helvetica', 'bold');
     doc.text('PRENEUR (LOCATAIRE):', 20, 75);
@@ -337,7 +366,17 @@ export default function Contracts() {
                   <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest flex items-center gap-2">
                     <User className="w-3 h-3 text-primary" /> Locataire (Preneur)
                   </Label>
-                  <Select value={newContract.tenantId} onValueChange={(val) => setNewContract({...newContract, tenantId: val})}>
+                  <Select 
+                    value={newContract.tenantId} 
+                    onValueChange={(val) => {
+                      const tenant = tenants.find(t => t.id === val);
+                      setNewContract({
+                        ...newContract, 
+                        tenantId: val,
+                        rentAmount: tenant?.monthlyRent || newContract.rentAmount || 0
+                      });
+                    }}
+                  >
                     <SelectTrigger className="rounded-xl h-14 border-2 bg-muted/40 font-bold border-muted/50 focus:border-primary">
                       <SelectValue placeholder="Choisir le client" />
                     </SelectTrigger>
@@ -432,7 +471,7 @@ export default function Contracts() {
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Loyer (Redevance)</Label>
+                  <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Loyer Mensuel</Label>
                   <Input 
                     type="number" 
                     value={newContract.rentAmount} 

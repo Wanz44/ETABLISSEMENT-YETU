@@ -14,6 +14,7 @@ import Analytics from './pages/Analytics';
 import DataAnalytics from './pages/DataAnalytics';
 import Reports from './pages/Reports';
 import LocalDatabase from './pages/LocalDatabase';
+import Settings from './pages/Settings';
 import { Toaster } from './components/ui/sonner';
 
 export default function App() {
@@ -34,6 +35,7 @@ export default function App() {
             <Route path="/data-analytic" element={<DataAnalytics />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/database" element={<LocalDatabase />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </Layout>

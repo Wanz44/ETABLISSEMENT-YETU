@@ -57,47 +57,6 @@ export default function Centers() {
 
   const { centers, buildings, units, settings } = data;
   
-  // Initialize settings if they don't exist
-  useEffect(() => {
-    const initSettings = async () => {
-      const existing = await dbLocal.settings.get('global-settings');
-      if (!existing) {
-        try {
-          await dbLocal.settings.put({
-            id: 'global-settings',
-            dashboardResetDate: new Date().toISOString(),
-            features: {
-              showUnitStatusCounts: true,
-              enableMaintenanceTracking: true,
-              allowCustomUnitStatuses: true
-            },
-            unitStatuses: [
-              { id: 'free', label: 'Libre', color: 'bg-amber-500', isActive: true },
-              { id: 'occupied', label: 'Occupé', color: 'bg-emerald-500', isActive: true },
-              { id: 'maintenance', label: 'Maintenance', color: 'bg-rose-500', isActive: true }
-            ]
-          });
-        } catch (err) {
-          console.warn('Settings already initialized or error during init:', err);
-        }
-      }
-    };
-    initSettings();
-  }, []);
-
-  const handleUpdateFeature = async (featureKey: string, value: boolean) => {
-    const currentSettings = settings || { id: 'global-settings', features: {} };
-    const updatedSettings = {
-      ...currentSettings,
-      features: {
-        ...(currentSettings.features || {}),
-        [featureKey]: value
-      }
-    };
-    await dbLocal.settings.put(updatedSettings as AppSettings);
-    toast.success('Paramètre mis à jour');
-  };
-  
   const [searchTerm, setSearchTerm] = useState('');
   const [isCenterDialogOpen, setIsCenterDialogOpen] = useState(false);
   const [isBuildingDialogOpen, setIsBuildingDialogOpen] = useState(false);
@@ -125,6 +84,9 @@ export default function Centers() {
       toast.error('Le nom du centre est obligatoire');
       return;
     }
+    if (!confirm(editingItem ? 'Êtes-vous certain de vouloir enregistrer les modifications apportées à ce centre ?' : 'Souhaitez-vous créer ce nouveau centre commercial ?')) {
+      return;
+    }
     try {
       if (editingItem && editingItem.type === 'centers') {
         await DataService.update('centers', editingItem.id, newCenter);
@@ -146,6 +108,9 @@ export default function Centers() {
       toast.error('Veuillez remplir les champs obligatoires');
       return;
     }
+    if (!confirm(editingItem ? 'Confirmer les modifications structurelles de cet immeuble ?' : 'Souhaitez-vous ajouter cet immeuble au centre sélectionné ?')) {
+      return;
+    }
     try {
       if (editingItem && editingItem.type === 'buildings') {
         await DataService.update('buildings', editingItem.id, newBuilding);
@@ -165,6 +130,9 @@ export default function Centers() {
   const handleSaveUnit = async () => {
     if (!newUnit.name || !newUnit.centerId || !newUnit.buildingId) {
       toast.error('Veuillez remplir les champs obligatoires');
+      return;
+    }
+    if (!confirm(editingItem ? 'Valider les modifications de cette unité locative ?' : 'Inscrire cette nouvelle unité dans le patrimoine ?')) {
       return;
     }
     try {
@@ -191,69 +159,15 @@ export default function Centers() {
   };
 
   const handleSaveStatus = async () => {
-    if (!newStatus.label) {
-      toast.error('Le libellé est obligatoire');
-      return;
-    }
-    try {
-      const currentSettings = settings || { id: 'global-settings', unitStatuses: [] };
-      let updatedStatuses = [...(currentSettings.unitStatuses || [])];
-      
-      if (editingItem && editingItem.type === 'status') {
-        updatedStatuses = updatedStatuses.map(s => s.id === editingItem.id ? { ...newStatus, id: editingItem.id } : s);
-        toast.success('Statut mis à jour');
-      } else {
-        const id = newStatus.label.toLowerCase().replace(/\s+/g, '-');
-        if (updatedStatuses.some(s => s.id === id)) {
-          toast.error('Un statut avec ce nom existe déjà');
-          return;
-        }
-        updatedStatuses.push({ ...newStatus, id });
-        toast.success('Nouveau statut ajouté');
-      }
-      
-      await dbLocal.settings.put({ ...currentSettings, unitStatuses: updatedStatuses } as AppSettings);
-      setIsStatusDialogOpen(false);
-      setEditingItem(null);
-      setNewStatus({ id: '', label: '', color: 'bg-primary', isActive: true });
-    } catch (e) {
-      toast.error('Erreur lors de l\'enregistrement du statut');
-    }
+    // Moved to Settings.tsx
   };
 
   const handleToggleStatus = async (statusId: string) => {
-    try {
-      const currentSettings = settings;
-      if (!currentSettings) return;
-      
-      const updatedStatuses = currentSettings.unitStatuses?.map(s => 
-        s.id === statusId ? { ...s, isActive: !s.isActive } : s
-      );
-      
-      await dbLocal.settings.put({ ...currentSettings, unitStatuses: updatedStatuses } as AppSettings);
-      toast.success('État du statut modifié');
-    } catch (e) {
-      toast.error('Erreur lors de la modification');
-    }
+    // Moved to Settings.tsx
   };
 
   const handleDeleteStatus = async (statusId: string) => {
-    // Protection for default statuses
-    if (['free', 'occupied', 'maintenance'].includes(statusId)) {
-      toast.error('Les statuts système ne peuvent pas être supprimés');
-      return;
-    }
-    
-    try {
-      const currentSettings = settings;
-      if (!currentSettings) return;
-      
-      const updatedStatuses = currentSettings.unitStatuses?.filter(s => s.id !== statusId);
-      await dbLocal.settings.put({ ...currentSettings, unitStatuses: updatedStatuses } as AppSettings);
-      toast.success('Statut supprimé');
-    } catch (e) {
-      toast.error('Erreur lors de la suppression');
-    }
+    // Moved to Settings.tsx
   };
 
   const openEditCenter = (center: Center) => {
@@ -594,14 +508,10 @@ export default function Centers() {
       </div>
 
       <Tabs defaultValue="centers" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 max-w-lg">
+        <TabsList className="grid w-full grid-cols-3 max-w-sm">
           <TabsTrigger value="centers" className="font-bold">Centres</TabsTrigger>
           <TabsTrigger value="buildings" className="font-bold">Immeubles</TabsTrigger>
           <TabsTrigger value="units" className="font-bold">Unités</TabsTrigger>
-          <TabsTrigger value="settings" className="font-bold gap-2">
-            <Settings className="w-4 h-4" />
-            Config
-          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="centers" className="mt-6 animate-in slide-in-from-bottom-2 duration-300">
@@ -826,157 +736,6 @@ export default function Centers() {
             </Table>
           </Card>
         </TabsContent>
-        <TabsContent value="settings" className="mt-6 animate-in slide-in-from-bottom-2 duration-300">
-          <div className="grid gap-8 md:grid-cols-2">
-            <Card className="rounded-3xl border-none shadow-xl bg-white overflow-hidden">
-              <CardHeader className="bg-primary/5 p-6 border-b">
-                <CardTitle className="text-xl font-black tracking-tighter uppercase flex items-center gap-2">
-                  <Settings className="w-5 h-5" />
-                  Paramétrage des Fonctionnalités
-                </CardTitle>
-                <CardDescription className="text-xs font-bold uppercase opacity-60">Configuration des options d'affichage et de comportement</CardDescription>
-              </CardHeader>
-              <CardContent className="p-8 space-y-8">
-                <div className="flex items-center justify-between p-4 bg-muted/20 rounded-2xl border-2 border-transparent hover:border-primary/20 transition-all group">
-                  <div className="space-y-1">
-                    <Label className="font-black text-sm uppercase tracking-tighter group-hover:text-primary transition-colors">Affichage des statuts d'unités</Label>
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase leading-tight">Affiche les compteurs (Libre, Occupé, Maintenance) sur les cartes des centres</p>
-                  </div>
-                  <Checkbox 
-                    checked={settings?.features?.showUnitStatusCounts} 
-                    onCheckedChange={(checked) => handleUpdateFeature('showUnitStatusCounts', !!checked)}
-                    className="w-6 h-6 rounded-lg text-primary border-2"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between p-4 bg-muted/20 rounded-2xl border-2 border-transparent hover:border-primary/20 transition-all group">
-                  <div className="space-y-1">
-                    <Label className="font-black text-sm uppercase tracking-tighter group-hover:text-primary transition-colors">Suivi de maintenance avancé</Label>
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase leading-tight">Active les options de gestion technique pour les unités en maintenance</p>
-                  </div>
-                  <Checkbox 
-                    checked={settings?.features?.enableMaintenanceTracking} 
-                    onCheckedChange={(checked) => handleUpdateFeature('enableMaintenanceTracking', !!checked)}
-                    className="w-6 h-6 rounded-lg text-primary border-2"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between p-4 bg-muted/20 rounded-2xl border-2 border-transparent hover:border-primary/20 transition-all group">
-                  <div className="space-y-1">
-                    <Label className="font-black text-sm uppercase tracking-tighter group-hover:text-primary transition-colors">Statuts personnalisés</Label>
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase leading-tight">Autoriser l'ajout de nouveaux statuts pour les unités locatives</p>
-                  </div>
-                  <Checkbox 
-                    checked={settings?.features?.allowCustomUnitStatuses} 
-                    onCheckedChange={(checked) => handleUpdateFeature('allowCustomUnitStatuses', !!checked)}
-                    className="w-6 h-6 rounded-lg text-primary border-2"
-                  />
-                </div>
-
-                {settings?.features?.allowCustomUnitStatuses && (
-                  <div className="space-y-4 pt-4 border-t border-dashed">
-                    <div className="flex items-center justify-between">
-                      <Label className="font-black text-[10px] uppercase tracking-widest text-[#697386]">Gestion des Statuts</Label>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-7 text-[9px] font-black uppercase tracking-widest bg-primary/5 rounded-lg"
-                        onClick={() => {
-                          setEditingItem(null);
-                          setNewStatus({ id: '', label: '', color: 'bg-emerald-500', isActive: true });
-                          setIsStatusDialogOpen(true);
-                        }}
-                      >
-                        <Plus className="w-3 h-3 mr-1" /> Ajouter
-                      </Button>
-                    </div>
-                    <div className="space-y-2">
-                      {settings?.unitStatuses?.map((status) => (
-                        <div key={status.id} className="flex items-center justify-between p-3 bg-white rounded-xl border border-[#E1E5EB] shadow-sm">
-                          <div className="flex items-center gap-3">
-                            <div className={cn("w-3 h-3 rounded-full shadow-sm", status.color)} />
-                            <span className="text-xs font-bold uppercase tracking-tight text-[#1A1F36]">{status.label}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                             <Badge 
-                               variant="outline" 
-                               className={cn("text-[8px] font-black uppercase px-1.5 cursor-pointer", status.isActive ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600")}
-                               onClick={() => handleToggleStatus(status.id)}
-                             >
-                               {status.isActive ? 'Actif' : 'Inactif'}
-                             </Badge>
-                             <Button 
-                               variant="ghost" 
-                               size="icon" 
-                               className="h-6 w-6 rounded-md hover:bg-muted"
-                               onClick={() => {
-                                 setEditingItem({ id: status.id, type: 'status' });
-                                 setNewStatus({ ...status });
-                                 setIsStatusDialogOpen(true);
-                               }}
-                             >
-                               <Edit className="w-3 h-3" />
-                             </Button>
-                             {!['free', 'occupied', 'maintenance'].includes(status.id) && (
-                               <Button 
-                                 variant="ghost" 
-                                 size="icon" 
-                                 className="h-6 w-6 rounded-md hover:bg-rose-50 text-rose-600"
-                                 onClick={() => handleDeleteStatus(status.id)}
-                               >
-                                 <Trash2 className="w-3 h-3" />
-                               </Button>
-                             )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="rounded-3xl border-none shadow-xl bg-white overflow-hidden">
-              <CardHeader className="bg-primary/5 p-6 border-b">
-                <CardTitle className="text-xl font-black tracking-tighter uppercase">Comportement & États</CardTitle>
-                <CardDescription className="text-xs font-bold uppercase opacity-60">Gestion des états du système et notifications</CardDescription>
-              </CardHeader>
-              <CardContent className="p-8">
-                <div className="space-y-6">
-                  <div className="p-6 bg-primary/5 rounded-3xl border-2 border-primary/10">
-                    <div className="flex items-center gap-4 mb-4">
-                      <div className="p-3 bg-primary rounded-2xl text-white">
-                        <AlertCircle className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <h5 className="font-black text-sm uppercase tracking-tight">Mode Audit</h5>
-                        <p className="text-[10px] font-bold text-muted-foreground">Toutes les actions sont tracées pour la conformité</p>
-                      </div>
-                    </div>
-                    <Button variant="outline" className="w-full rounded-xl font-black uppercase text-[10px] tracking-widest h-10 border-2">Consulter les logs</Button>
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Fréquence de rafraîchissement</Label>
-                    <Select defaultValue="realtime">
-                      <SelectTrigger className="rounded-xl h-12 border-2 bg-muted/30">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="realtime">TEMPS RÉEL (FLUX DIRECT)</SelectItem>
-                        <SelectItem value="5min">TOUTES LES 5 MINUTES</SelectItem>
-                        <SelectItem value="hourly">TOUTES LES HEURES</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </CardContent>
-              <CardFooter className="p-8 pt-0">
-                <p className="text-[9px] font-black uppercase text-muted-foreground italic text-center w-full">Certaines modifications peuvent nécessiter un redémarrage du module</p>
-              </CardFooter>
-            </Card>
-          </div>
-        </TabsContent>
       </Tabs>
 
       <ConfirmDialog 
@@ -992,51 +751,6 @@ export default function Centers() {
         }
         onConfirm={handleDeleteItem}
       />
-
-      <Dialog open={isStatusDialogOpen} onOpenChange={setIsStatusDialogOpen}>
-        <DialogContent className="rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden max-w-[400px]">
-          <div className="bg-primary p-6 text-primary-foreground">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-black uppercase tracking-widest">
-                {editingItem ? 'Modifier Statut' : 'Nouveau Statut'}
-              </DialogTitle>
-            </DialogHeader>
-          </div>
-          <div className="p-8 space-y-6">
-            <div className="grid gap-2">
-              <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Désignation du statut</Label>
-              <Input 
-                value={newStatus.label}
-                onChange={(e) => setNewStatus({...newStatus, label: e.target.value})}
-                placeholder="ex: En Rénovation, Réservé..."
-                className="rounded-xl h-12 border-2 bg-muted/30 font-bold"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Code Couleur (Tailwind)</Label>
-              <Select value={newStatus.color} onValueChange={(val) => setNewStatus({...newStatus, color: val})}>
-                <SelectTrigger className="rounded-xl h-12 border-2 bg-muted/30">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="bg-emerald-500">VERT EMERAUDE</SelectItem>
-                  <SelectItem value="bg-amber-500">AMBRE / JAUNE</SelectItem>
-                  <SelectItem value="bg-rose-500">ROSE / ROUGE</SelectItem>
-                  <SelectItem value="bg-blue-500">BLEU AZUR</SelectItem>
-                  <SelectItem value="bg-violet-500">VIOLET</SelectItem>
-                  <SelectItem value="bg-slate-500">GRIS</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="p-8 pt-0 flex gap-4">
-            <Button variant="outline" className="flex-1 rounded-2xl h-12 font-black uppercase text-[10px]" onClick={() => setIsStatusDialogOpen(false)}>Annuler</Button>
-            <Button onClick={handleSaveStatus} className="flex-[2] rounded-2xl h-12 font-black uppercase text-[10px] shadow-xl shadow-primary/20">
-              {editingItem ? 'Mettre à jour' : 'Enregistrer'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

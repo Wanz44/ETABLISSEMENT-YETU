@@ -223,11 +223,11 @@ export default function Payments() {
     
     doc.setFontSize(10);
     doc.setTextColor(100);
-    doc.text('YETU Gestion Immobilière', 20, 30);
+    doc.text('GRACE Gestion Immobilière', 20, 30);
     doc.text('Paiement Local Sécurisé', 20, 35);
 
     // QR Code Integration
-    const qrText = `YETU_PAYMENT_VERIFICATION\nS/N: ${payment.serialNumber}\nLocataire: ${tenant?.name}\nMontant: ${payment.amount} ${payment.currency}\nDate: ${format(new Date(payment.date), 'dd/MM/yyyy')}`;
+    const qrText = `GRACE_PAYMENT_VERIFICATION\nS/N: ${payment.serialNumber}\nLocataire: ${tenant?.name}\nMontant: ${payment.amount} ${payment.currency}\nDate: ${format(new Date(payment.date), 'dd/MM/yyyy')}`;
     const qrDataUrl = await QRCode.toDataURL(qrText, { margin: 1, width: 200 });
     doc.addImage(qrDataUrl, 'PNG', 160, 10, 35, 35);
 
@@ -281,7 +281,7 @@ export default function Payments() {
     doc.setFont('helvetica', 'italic');
     doc.setTextColor(150);
     const footerY = 280;
-    doc.text('Ce document est un reçu officiel généré électroniquement par le système YETU.', 105, footerY, { align: 'center' });
+    doc.text('Ce document est un reçu officiel généré électroniquement par le système GRACE.', 105, footerY, { align: 'center' });
     
     doc.save(`Recu_${tenant?.name || 'Client'}_${String(payment.id).slice(0, 8)}.pdf`);
   };
@@ -342,7 +342,7 @@ export default function Payments() {
     
     const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
     const dataBlob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
-    saveAs(dataBlob, `Rapport_Paiements_Yetu_${format(new Date(), 'dd_MM_yyyy')}.xlsx`);
+    saveAs(dataBlob, `Rapport_Paiements_Grace_${format(new Date(), 'dd_MM_yyyy')}.xlsx`);
     toast.success(`${filteredPayments.length} paiements exportés dans un rapport complet.`);
   };
 

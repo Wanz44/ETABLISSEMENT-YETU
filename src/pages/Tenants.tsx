@@ -73,6 +73,7 @@ export default function Tenants() {
     address: '',
     idNumber: '',
     legalStatus: 'particular' as 'particular' | 'company',
+    monthlyRent: 0,
     additionalInfo: ''
   });
 
@@ -84,6 +85,9 @@ export default function Tenants() {
       return;
     }
 
+    if (!confirm(editingTenantId ? 'Sauvegarder les modifications apportées à ce dossier locataire ?' : 'Souhaitez-vous enregistrer ce nouveau locataire ?')) {
+      return;
+    }
     try {
       if (editingTenantId) {
         await DataService.update('tenants', editingTenantId, newTenant);
@@ -107,6 +111,7 @@ export default function Tenants() {
         address: '',
         idNumber: '',
         legalStatus: 'particular',
+        monthlyRent: 0,
         additionalInfo: ''
       });
       setEditingTenantId(null);
@@ -128,6 +133,7 @@ export default function Tenants() {
       address: tenant.address || '',
       idNumber: tenant.idNumber || '',
       legalStatus: tenant.legalStatus || 'particular',
+      monthlyRent: tenant.monthlyRent || 0,
       additionalInfo: tenant.additionalInfo || ''
     });
     setIsDialogOpen(true);
@@ -157,6 +163,7 @@ export default function Tenants() {
         address: t.address || '',
         idNumber: t.idNumber || '',
         legalStatus: t.legalStatus || 'particular',
+        monthlyRent: t.monthlyRent || 0,
         additionalInfo: t.additionalInfo || '',
         createdAt: new Date().toISOString()
       }));
@@ -279,7 +286,7 @@ export default function Tenants() {
             </div>
             
             <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="grid gap-2">
                   <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Statut Juridique</Label>
                   <Select value={newTenant.legalStatus} onValueChange={(val: any) => setNewTenant({...newTenant, legalStatus: val})}>
@@ -299,6 +306,16 @@ export default function Tenants() {
                     onChange={(e) => setNewTenant({...newTenant, idNumber: e.target.value})} 
                     placeholder="ex: CD/KNG/RCCM/..."
                     className="rounded-xl h-12 border-2 bg-muted/30 font-bold"
+                  />
+                </div>
+                <div className="grid gap-2">
+                   <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Loyer Mensuel ($)</Label>
+                   <Input 
+                    type="number"
+                    value={newTenant.monthlyRent} 
+                    onChange={(e) => setNewTenant({...newTenant, monthlyRent: Number(e.target.value)})} 
+                    placeholder="Montant du loyer"
+                    className="rounded-xl h-12 border-2 bg-muted/30 font-black"
                   />
                 </div>
               </div>

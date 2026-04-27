@@ -46,6 +46,7 @@ export interface Tenant {
   address?: string;
   idNumber?: string;
   legalStatus: 'particular' | 'company';
+  monthlyRent?: number;
   additionalInfo?: string;
   createdAt?: string;
 }
@@ -108,6 +109,7 @@ export interface AppSettings {
     showUnitStatusCounts?: boolean;
     enableMaintenanceTracking?: boolean;
     allowCustomUnitStatuses?: boolean;
+    compactMode?: boolean;
   };
   unitStatuses?: Array<{
     id: string;

@@ -117,7 +117,7 @@ export default function Invoices() {
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Factures');
     const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
     const dataBlob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
-    saveAs(dataBlob, `Factures_Yetu_${format(new Date(), 'dd_MM_yyyy')}.xlsx`);
+    saveAs(dataBlob, `Factures_Grace_${format(new Date(), 'dd_MM_yyyy')}.xlsx`);
     toast.success('Export Excel terminé');
   };
 
@@ -212,7 +212,7 @@ export default function Invoices() {
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(22);
     doc.setFont('helvetica', 'bold');
-    doc.text('YETU BANK - GESTION', 20, 25);
+    doc.text('GRACE BANK - GESTION', 20, 25);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.text('Département d\'Administration Immobilière', 20, 32);
@@ -232,7 +232,7 @@ export default function Invoices() {
     doc.setFont('helvetica', 'bold');
     doc.text('ÉMETTEUR:', 20, 60);
     doc.setFont('helvetica', 'normal');
-    doc.text('Établissement YETU', 20, 65);
+    doc.text('Établissement GRACE', 20, 65);
     doc.text('Direction Financière', 20, 70);
     doc.text('Kinshasa, RD Congo', 20, 75);
 
@@ -301,9 +301,9 @@ export default function Invoices() {
     doc.setTextColor(100, 116, 139);
     doc.setFontSize(8);
     doc.setFont('helvetica', 'italic');
-    doc.text('Note: Cette facture est un titre de paiement officiel émis par l\'Etablissement YETU. Tout retard de paiement peut entraîner des pénalités.', 105, 280, { align: 'center' });
+    doc.text('Note: Cette facture est un titre de paiement officiel émis par l\'Etablissement GRACE. Tout retard de paiement peut entraîner des pénalités.', 105, 280, { align: 'center' });
     doc.setFont('helvetica', 'normal');
-    doc.text('YETU BANK - Excellence en Gestion Immobilière', 105, 285, { align: 'center' });
+    doc.text('GRACE BANK - Excellence en Gestion Immobilière', 105, 285, { align: 'center' });
 
     doc.save(`Facture_${invoice.invoiceNumber || invoice.id}_${tenant?.name}.pdf`);
     toast.success('Facture PDF générée avec succès');
@@ -1002,7 +1002,7 @@ export default function Invoices() {
         <div className="print-only p-8 max-w-[800px] mx-auto bg-white text-black">
           <div className="flex justify-between items-start border-b-2 border-primary pb-6 mb-8">
             <div>
-              <h1 className="text-3xl font-bold text-primary">YETU ADMIN</h1>
+              <h1 className="text-3xl font-bold text-primary">GRACE ADMIN</h1>
               <p className="text-gray-500 text-sm">Gestion Immobilière Professionnelle</p>
             </div>
             <div className="text-right">
@@ -1061,7 +1061,7 @@ export default function Invoices() {
 
           <div className="border-t pt-8 text-center text-gray-400 text-xs text-muted-foreground">
             <p>Merci de votre confiance. Pour toute question, veuillez nous contacter.</p>
-            <p className="mt-2 font-bold opacity-50">YETU Admin - Système de Gestion Immobilière</p>
+            <p className="mt-2 font-bold opacity-50">GRACE Admin - Système de Gestion Immobilière</p>
           </div>
         </div>
       )}

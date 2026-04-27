@@ -52,7 +52,7 @@ export default function Login() {
             <Building2 className="w-10 h-10 text-primary" />
           </div>
           <div>
-            <CardTitle className="text-3xl font-bold tracking-tight">Etablissement YETU</CardTitle>
+            <CardTitle className="text-3xl font-bold tracking-tight">Etablissement GRACE</CardTitle>
             <CardDescription className="text-base mt-2">
               {isRegistering 
                 ? "Créez votre compte pour commencer." 
