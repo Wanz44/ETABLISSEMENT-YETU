@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Plus, Building2, MapPin, MoreVertical, Edit, Trash2, Home, Search, LayoutGrid, Settings, Check, X, Building, AlertCircle } from 'lucide-react';
+import React, { useEffect, useState, useRef } from 'react';
+import { Plus, Building2, MapPin, MoreVertical, Edit, Trash2, Home, Search, LayoutGrid, Settings, Check, X, Building, AlertCircle, Upload, Filter } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '../components/ui/card';
 import { 
@@ -66,6 +66,9 @@ export default function Centers() {
   const [itemToDelete, setItemToDelete] = useState<{id: any, type: 'centers' | 'buildings' | 'units', name: string} | null>(null);
   
   const [editingItem, setEditingItem] = useState<{id: any, type: 'centers' | 'buildings' | 'units' | 'status'} | null>(null);
+
+  const [unitTypeFilter, setUnitTypeFilter] = useState<'all' | 'shop' | 'office'>('all');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [newCenter, setNewCenter] = useState({ name: '', location: '', description: '' });
   const [newBuilding, setNewBuilding] = useState({ centerId: '', name: '', description: '' });
@@ -228,12 +231,49 @@ export default function Centers() {
            center?.name.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
+  const handleImportJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const jsonData = JSON.parse(event.target?.result as string);
+        if (!Array.isArray(jsonData)) {
+          toast.error('Format JSON invalide. Une liste de centres est attendue.');
+          return;
+        }
+
+        if (!confirm(`Importer ${jsonData.length} centres commerciaux ?`)) return;
+
+        for (const center of jsonData) {
+          if (center.name) {
+            await DataService.add('centers', {
+              ...center,
+              createdAt: center.createdAt || new Date().toISOString()
+            });
+          }
+        }
+        toast.success(`${jsonData.length} centres importés avec succès`);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      } catch (error) {
+        toast.error('Erreur lors de la lecture du fichier JSON');
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const filteredUnits = units.filter(u => {
     const building = buildings.find(b => b.id === u.buildingId);
     const center = centers.find(c => c.id === u.centerId);
-    return u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    
+    const matchesSearch = u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
            building?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
            center?.name.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesType = unitTypeFilter === 'all' || u.type === unitTypeFilter;
+
+    return matchesSearch && matchesType;
   });
 
   return (
@@ -245,6 +285,22 @@ export default function Centers() {
         </div>
         
         <div className="flex flex-wrap gap-2">
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleImportJSON} 
+            accept=".json" 
+            className="hidden" 
+          />
+          <Button 
+            variant="outline" 
+            className="rounded-xl border-2 border-dashed hover:bg-primary/5 hover:border-primary transition-all font-bold"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            Importer JSON
+          </Button>
+
           <Dialog open={isBuildingDialogOpen} onOpenChange={(open) => {
             setIsBuildingDialogOpen(open);
             if (!open) { setEditingItem(null); setNewBuilding({ centerId: '', name: '', description: '' }); }
@@ -655,6 +711,36 @@ export default function Centers() {
         </TabsContent>
 
         <TabsContent value="units" className="mt-6 animate-in slide-in-from-bottom-2 duration-300">
+          <div className="mb-4 flex items-center gap-3">
+            <Filter className="w-4 h-4 text-muted-foreground" />
+            <div className="flex p-1 bg-muted/30 rounded-xl">
+              <Button 
+                variant={unitTypeFilter === 'all' ? 'secondary' : 'ghost'} 
+                size="sm" 
+                className="rounded-lg font-bold text-[10px] uppercase tracking-widest px-4"
+                onClick={() => setUnitTypeFilter('all')}
+              >
+                Tout
+              </Button>
+              <Button 
+                variant={unitTypeFilter === 'shop' ? 'secondary' : 'ghost'} 
+                size="sm" 
+                className="rounded-lg font-bold text-[10px] uppercase tracking-widest px-4"
+                onClick={() => setUnitTypeFilter('shop')}
+              >
+                Boutiques
+              </Button>
+              <Button 
+                variant={unitTypeFilter === 'office' ? 'secondary' : 'ghost'} 
+                size="sm" 
+                className="rounded-lg font-bold text-[10px] uppercase tracking-widest px-4"
+                onClick={() => setUnitTypeFilter('office')}
+              >
+                Bureaux
+              </Button>
+            </div>
+          </div>
+
           <Card className="rounded-2xl border border-[#E1E5EB] bg-white shadow-sm overflow-hidden p-0">
             <Table>
               <TableHeader className="bg-[#F8F9FA] border-b border-[#E1E5EB]">

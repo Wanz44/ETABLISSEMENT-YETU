@@ -80,6 +80,7 @@ export default function Contracts() {
   const [searchTerm, setSearchTerm] = useState('');
   const [editingContractId, setEditingContractId] = useState<string|null>(null);
   const [isEditingContract, setIsEditingContract] = useState(false);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   
   const [newContract, setNewContract] = useState({
     tenantId: '',
@@ -208,6 +209,10 @@ export default function Contracts() {
     const unit = units.find(u => u.id === c.unitId);
     const term = searchTerm.toLowerCase();
     return (tenant?.name?.toLowerCase().includes(term) || unit?.name?.toLowerCase().includes(term));
+  }).sort((a, b) => {
+    const dateA = new Date(a.startDate).getTime();
+    const dateB = new Date(b.startDate).getTime();
+    return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
   });
 
   const getContractTypeLabel = (type: string) => {
@@ -579,7 +584,15 @@ export default function Contracts() {
             <TableRow className="border-none">
               <TableHead className="font-black text-[10px] uppercase tracking-widest pl-8 py-4">Titre Locatif / Client</TableHead>
               <TableHead className="font-black text-[10px] uppercase tracking-widest py-4">Assiette Immobilière</TableHead>
-              <TableHead className="font-black text-[10px] uppercase tracking-widest py-4">Exercice de Validité</TableHead>
+              <TableHead 
+                className="font-black text-[10px] uppercase tracking-widest py-4 cursor-pointer hover:text-primary transition-colors"
+                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+              >
+                <div className="flex items-center gap-1">
+                  Exercice de Validité
+                  {sortOrder === 'asc' ? <Plus className="w-3 h-3 rotate-45" /> : <Plus className="w-3 h-3" />}
+                </div>
+              </TableHead>
               <TableHead className="font-black text-[10px] uppercase tracking-widest py-4">Redevance de Base</TableHead>
               <TableHead className="font-black text-[10px] uppercase tracking-widest py-4">État de Conformité</TableHead>
               <TableHead className="text-right font-black text-[10px] uppercase tracking-widest pr-8 py-4">Opérations</TableHead>

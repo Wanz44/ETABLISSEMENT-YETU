@@ -87,6 +87,42 @@ export default function Invoices() {
   const [isEditingInvoice, setIsEditingInvoice] = useState(false);
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
 
+  const handlePayAll = async () => {
+    const unpaidInvoices = invoices.filter(inv => inv.status !== 'paid');
+    if (unpaidInvoices.length === 0) {
+      toast.info('Aucune facture en attente de paiement');
+      return;
+    }
+
+    if (!confirm(`Confirmer la régularisation intégrale de ${unpaidInvoices.length} factures en attente ?`)) return;
+
+    try {
+      for (const invoice of unpaidInvoices) {
+        const remainingAmount = invoice.totalAmount - invoice.amountPaid;
+        const serialNumber = `PAY-BULK-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`;
+        
+        await DataService.add('payments', {
+          invoiceId: invoice.id,
+          tenantId: invoice.tenantId,
+          amount: remainingAmount,
+          currency: invoice.currency || 'USD',
+          date: new Date().toISOString(),
+          method: 'bank',
+          reference: 'PAIEMENT GROUPE SYSTEME',
+          serialNumber
+        });
+
+        await DataService.update('invoices', invoice.id, {
+          amountPaid: invoice.totalAmount,
+          status: 'paid'
+        });
+      }
+      toast.success(`${unpaidInvoices.length} factures régularisées avec succès`);
+    } catch (e) {
+      toast.error('Erreur lors du paiement groupé');
+    }
+  };
+
   const months = [
     'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
     'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
@@ -433,6 +469,11 @@ export default function Invoices() {
           <Button variant="outline" onClick={exportToExcel} className="rounded-xl border-2 border-emerald-200 hover:bg-emerald-50 text-emerald-700 font-black h-11 px-6 shadow-sm active:scale-95 transition-all">
             <FileSpreadsheet className="w-4 h-4 mr-2" />
             Export Récapitulatif
+          </Button>
+
+          <Button variant="secondary" onClick={handlePayAll} className="rounded-xl h-11 px-6 font-bold shadow-sm active:scale-95 transition-all bg-emerald-600 text-white hover:bg-emerald-700 border-none">
+            <CheckCircle2 className="w-4 h-4 mr-2" />
+            Payer Tout
           </Button>
 
           <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>

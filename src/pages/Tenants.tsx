@@ -85,6 +85,11 @@ export default function Tenants() {
       return;
     }
 
+    if (newTenant.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newTenant.email)) {
+      toast.error('Le format de l\'adresse courriel est invalide');
+      return;
+    }
+
     if (!confirm(editingTenantId ? 'Sauvegarder les modifications apportées à ce dossier locataire ?' : 'Souhaitez-vous enregistrer ce nouveau locataire ?')) {
       return;
     }
