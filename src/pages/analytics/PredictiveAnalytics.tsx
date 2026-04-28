@@ -1,21 +1,53 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
+import { Button } from '../../components/ui/button';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, BarChart, Bar } from 'recharts';
 import { TrendingUp, Activity, AlertTriangle, UserMinus, DollarSign, ArrowUpRight, Zap, Lightbulb } from 'lucide-react';
 
-const PREDICTIVE_DATA = [
-  { name: 'M-5', actual: 4000, predicted: 4200, risk: 2 },
-  { name: 'M-4', actual: 4500, predicted: 4400, risk: 3 },
-  { name: 'M-3', actual: 5100, predicted: 5000, risk: 4 },
-  { name: 'M-2', actual: 4800, predicted: 5200, risk: 3 },
-  { name: 'M-1', actual: 5400, predicted: 5600, risk: 5 },
-  { name: 'Current', actual: 6000, predicted: 6200, risk: 7 },
-  { name: 'Next', actual: null, predicted: 6800, risk: 6 },
-  { name: 'Next+1', actual: null, predicted: 7200, risk: 5 },
-];
+import { useLiveQuery } from 'dexie-react-hooks';
+import { dbLocal } from '../../lib/db';
+import { subMonths, format, startOfMonth, endOfMonth } from 'date-fns';
+import { fr } from 'date-fns/locale';
 
 export default function PredictiveAnalytics() {
+  const data = useLiveQuery(async () => {
+    return {
+      payments: await dbLocal.payments.toArray(),
+      invoices: await dbLocal.invoices.toArray(),
+      tenants: await dbLocal.tenants.toArray()
+    };
+  }) || { payments: [], invoices: [], tenants: [] };
+
+  const { payments, invoices, tenants } = data;
+
+  const chartData = React.useMemo(() => {
+    const months = [];
+    for (let i = 5; i >= -2; i--) {
+      const date = subMonths(new Date(), i);
+      const label = i < 0 ? `Predictive ${Math.abs(i)}` : format(date, 'MMM', { locale: fr });
+      
+      const actualMonthRevenue = i >= 0 ? payments.filter(p => {
+        const pDate = new Date(p.date);
+        return pDate.getMonth() === date.getMonth() && pDate.getFullYear() === date.getFullYear();
+      }).reduce((acc, curr) => acc + curr.amount, 0) : null;
+
+      // Simple prediction: average of last few months + growth factor
+      const baseAverage = payments.length > 0 ? (payments.reduce((acc, curr) => acc + curr.amount, 0) / (payments.length || 1)) * 5 : 1000;
+      const predicted = baseAverage;
+      
+      months.push({ 
+        name: label, 
+        actual: actualMonthRevenue, 
+        predicted: Math.floor(predicted + (i < 0 ? (Math.abs(i) * 200) : 0)) 
+      });
+    }
+    return months;
+  }, [payments]);
+
+  const churnRate = tenants.length > 0 ? Math.min(10, (invoices.filter(i => i.status === 'unpaid').length / (invoices.length || 1)) * 5).toFixed(1) : "0.0";
+  const anomalyScore = payments.length > 0 ? (payments.filter(p => p.amount > 5000).length / payments.length * 100).toFixed(1) : "0.0";
+
   return (
     <div className="grid gap-6">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -33,7 +65,7 @@ export default function PredictiveAnalytics() {
             </CardHeader>
             <CardContent className="h-[400px] p-8">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={PREDICTIVE_DATA}>
+                <AreaChart data={chartData}>
                   <defs>
                     <linearGradient id="colorActual" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1}/>
@@ -61,7 +93,7 @@ export default function PredictiveAnalytics() {
             <PredictionDetailCard 
                icon={UserMinus} 
                label="Taux de Churn Calculé" 
-               value="4.2%" 
+               value={`${churnRate}%`}
                trend="-1.2%" 
                color="text-rose-500"
                description="Probabilité mathématique de départ locataire sur le prochain trimestre."
@@ -69,8 +101,8 @@ export default function PredictiveAnalytics() {
             <PredictionDetailCard 
                icon={AlertTriangle} 
                label="Score d'Anomalie Statistique" 
-               value="Bas" 
-               trend="98.5" 
+               value={parseFloat(anomalyScore) > 10 ? "Élevé" : "Bas"} 
+               trend={anomalyScore}
                color="text-emerald-500"
                description="Résidu de variance détecté dans les flux financiers."
             />
@@ -151,4 +183,3 @@ function PrescriptionItem({ text, impact }: any) {
   );
 }
 
-import { Button } from '../../components/ui/button';

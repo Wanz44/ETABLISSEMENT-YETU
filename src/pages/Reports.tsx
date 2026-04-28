@@ -7,7 +7,9 @@ import {
   TrendingDown, 
   PieChart as PieChartIcon,
   Download,
-  Filter
+  Filter,
+  FileSpreadsheet,
+  FileText as FileTextIcon
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
@@ -26,6 +28,11 @@ import { Payment, Expense, Center, Unit, Contract } from '../types';
 import { cn } from '../lib/utils';
 import { format, startOfMonth, endOfMonth, isWithinInterval, parseISO, subMonths } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { toast } from 'sonner';
 import { 
   BarChart, 
   Bar, 
@@ -43,11 +50,18 @@ import {
 } from 'recharts';
 
 export default function Reports() {
-  const payments = useLiveQuery(() => dbLocal.payments.toArray()) || [];
-  const expenses = useLiveQuery(() => dbLocal.expenses.toArray()) || [];
-  const centers = useLiveQuery(() => dbLocal.centers.toArray()) || [];
-  const units = useLiveQuery(() => dbLocal.units.toArray()) || [];
-  const contracts = useLiveQuery(() => dbLocal.contracts.toArray()) || [];
+  const data = useLiveQuery(async () => {
+    return {
+      payments: await dbLocal.payments.toArray(),
+      expenses: await dbLocal.expenses.toArray(),
+      centers: await dbLocal.centers.toArray(),
+      units: await dbLocal.units.toArray(),
+      contracts: await dbLocal.contracts.toArray(),
+      invoices: await dbLocal.invoices.toArray()
+    };
+  }) || { payments: [], expenses: [], centers: [], units: [], contracts: [], invoices: [] };
+
+  const { payments, expenses, centers, units, contracts, invoices } = data;
 
   const [dateRange, setDateRange] = useState({
     start: format(startOfMonth(subMonths(new Date(), 5)), 'yyyy-MM-dd'),
@@ -65,11 +79,22 @@ export default function Reports() {
       const inRange = isWithinInterval(date, { start, end });
       const matchesCurrency = p.currency === selectedCurrency;
       
-      // For center filtering, we need to find the unit associated with the payment's invoice
-      // This is complex because payment doesn't have centerId directly.
-      // We'd need invoices too. Let's assume for now we filter by currency and date.
-      // To filter by center, we'd need to link Payment -> Invoice -> Unit -> Center.
-      return inRange && matchesCurrency;
+      let matchesCenter = selectedCenter === 'all';
+      if (!matchesCenter) {
+        // Link to center via Invoice -> Contract -> Unit
+        const invoice = invoices.find(i => i.id === p.invoiceId);
+        if (invoice) {
+          const contract = contracts.find(c => c.id === invoice.contractId);
+          if (contract) {
+            const unit = units.find(u => u.id === contract.unitId);
+            if (unit) {
+              matchesCenter = unit.centerId === selectedCenter;
+            }
+          }
+        }
+      }
+
+      return inRange && matchesCurrency && matchesCenter;
     });
 
     const filteredExpenses = expenses.filter(e => {
@@ -130,6 +155,81 @@ export default function Reports() {
     return Object.entries(categories).map(([name, value]) => ({ name, value }));
   }, [filteredData]);
 
+  const exportPDF = () => {
+    const doc = new jsPDF();
+    const centerName = selectedCenter === 'all' ? 'Tous les centres' : centers.find(c => c.id === selectedCenter)?.name;
+    
+    doc.setFontSize(20);
+    doc.text('RAPPORT FINANCIER STRATÉGIQUE', 105, 15, { align: 'center' });
+    
+    doc.setFontSize(10);
+    doc.text(`Période: ${dateRange.start} au ${dateRange.end}`, 20, 25);
+    doc.text(`Centre: ${centerName}`, 20, 30);
+    doc.text(`Devise: ${selectedCurrency}`, 20, 35);
+
+    autoTable(doc, {
+      startY: 45,
+      head: [['Indicateur', 'Valeur']],
+      body: [
+        ['Revenus Totaux', `${stats.totalRevenue.toLocaleString()} ${selectedCurrency}`],
+        ['Dépenses Totales', `${stats.totalExpenses.toLocaleString()} ${selectedCurrency}`],
+        ['Bénéfice Net', `${stats.netProfit.toLocaleString()} ${selectedCurrency}`],
+        ['Taux d\'Occupation', `${stats.occupancyRate.toFixed(1)}%`],
+        ['Unités Totales', stats.totalUnits.toString()],
+        ['Unités Occupées', stats.occupiedUnits.toString()]
+      ],
+      theme: 'striped'
+    });
+
+    autoTable(doc, {
+      startY: (doc as any).lastAutoTable.finalY + 10,
+      head: [['Mois', 'Revenus', 'Dépenses', 'Bénéfice']],
+      body: chartData.map(row => [
+        row.month,
+        row.revenue.toLocaleString(),
+        row.expenses.toLocaleString(),
+        (row.revenue - row.expenses).toLocaleString()
+      ])
+    });
+
+    doc.save(`Rapport_${centerName?.replace(/\s+/g, '_')}_${dateRange.start}.pdf`);
+    toast.success('Rapport PDF généré avec succès');
+  };
+
+  const exportExcel = () => {
+    const centerName = selectedCenter === 'all' ? 'Tous les centres' : centers.find(c => c.id === selectedCenter)?.name;
+    
+    const summaryData = [
+      { 'Indicateur': 'Période Début', 'Valeur': dateRange.start },
+      { 'Indicateur': 'Période Fin', 'Valeur': dateRange.end },
+      { 'Indicateur': 'Centre', 'Valeur': centerName },
+      { 'Indicateur': 'Devise', 'Valeur': selectedCurrency },
+      { 'Indicateur': 'Revenus Totaux', 'Valeur': stats.totalRevenue },
+      { 'Indicateur': 'Dépenses Totales', 'Valeur': stats.totalExpenses },
+      { 'Indicateur': 'Bénéfice Net', 'Valeur': stats.netProfit },
+      { 'Indicateur': 'Taux d\'Occupation (%)', 'Valeur': stats.occupancyRate.toFixed(2) }
+    ];
+
+    const monthlyData = chartData.map(row => ({
+      'Mois': row.month,
+      'Revenus': row.revenue,
+      'Dépenses': row.expenses,
+      'Bénéfice': row.revenue - row.expenses
+    }));
+
+    const workbook = XLSX.utils.book_new();
+    const summarySheet = XLSX.utils.json_to_sheet(summaryData);
+    const monthlySheet = XLSX.utils.json_to_sheet(monthlyData);
+
+    XLSX.utils.book_append_sheet(workbook, summarySheet, 'Résumé');
+    XLSX.utils.book_append_sheet(workbook, monthlySheet, 'Détails Mensuels');
+
+    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    const dataBlob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
+    saveAs(dataBlob, `Audit_Financier_${centerName?.replace(/\s+/g, '_')}.xlsx`);
+    toast.success('Export Excel terminé');
+  };
+
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
   return (
@@ -140,9 +240,13 @@ export default function Reports() {
           <p className="text-muted-foreground">Analysez la performance de vos biens immobiliers.</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
-            <Download className="w-4 h-4 mr-2" />
-            Exporter PDF
+          <Button variant="outline" size="sm" onClick={exportExcel} className="rounded-xl font-bold bg-emerald-50 text-emerald-700 border-emerald-200">
+            <FileSpreadsheet className="w-4 h-4 mr-2" />
+            Excel
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportPDF} className="rounded-xl font-bold bg-rose-50 text-rose-700 border-rose-200">
+            <FileTextIcon className="w-4 h-4 mr-2" />
+            PDF
           </Button>
         </div>
       </div>

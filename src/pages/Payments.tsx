@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, CreditCard, Calendar, DollarSign, MoreVertical, Search, FileCheck, Wallet, Landmark, Download, Printer, FileSpreadsheet } from 'lucide-react';
+import { Plus, CreditCard, Calendar, DollarSign, MoreVertical, Search, FileCheck, Wallet, Landmark, Download, Printer, FileSpreadsheet, BarChart3 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { Button } from '../components/ui/button';
@@ -38,8 +38,19 @@ import { DataService } from '../lib/data';
 import { cn } from '../lib/utils';
 import { Payment, Invoice, Tenant } from '../types';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { format, startOfYear, endOfYear, eachMonthOfInterval } from 'date-fns';
 import { fr } from 'date-fns/locale';
+
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  Cell
+} from 'recharts';
 
 import { 
   Tabs, 
@@ -305,6 +316,28 @@ export default function Payments() {
     
     return { usdTotal, cdfTotal };
   };
+
+  const monthlyData = React.useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const monthsInYear = eachMonthOfInterval({
+      start: startOfYear(new Date(currentYear, 0, 1)),
+      end: endOfYear(new Date(currentYear, 0, 1))
+    });
+
+    return monthsInYear.map(month => {
+      const monthName = format(month, 'MMM', { locale: fr });
+      const amountUSD = payments
+        .filter(p => {
+          const pDate = new Date(p.date);
+          return pDate.getMonth() === month.getMonth() && 
+                 pDate.getFullYear() === currentYear &&
+                 (p.currency === 'USD' || !p.currency);
+        })
+        .reduce((acc, curr) => acc + curr.amount, 0);
+      
+      return { name: monthName, amount: amountUSD };
+    });
+  }, [payments]);
 
   const exportToExcel = () => {
     const dataToExport = filteredPayments.map(p => {
@@ -602,25 +635,79 @@ export default function Payments() {
         </TabsContent>
 
         <TabsContent value="list" className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-3">
-            <Card className="rounded-3xl border-none shadow-md bg-card p-6">
-              <p className="text-sm font-medium text-muted-foreground mb-1">Total Encaissé (USD)</p>
-              <div className="text-3xl font-black text-primary">
-                {stats.usdTotal.toLocaleString()} <span className="text-sm">USD</span>
+          <div className="grid gap-4 md:grid-cols-4">
+            <Card className="md:col-span-3 rounded-3xl border-none shadow-md bg-card p-6 min-h-[300px]">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h4 className="text-sm font-black uppercase tracking-widest text-[#1A1F36]">Flux de Trésorerie Mensuel ({new Date().getFullYear()})</h4>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase opacity-60">Volume des encaissements en USD</p>
+                </div>
+                <div className="p-2 bg-emerald-50 rounded-lg">
+                  <BarChart3 className="w-4 h-4 text-emerald-600" />
+                </div>
+              </div>
+              <div className="h-[200px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={monthlyData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E1E5EB" />
+                    <XAxis 
+                      dataKey="name" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fontSize: 10, fontWeight: 900, fill: '#697386' }} 
+                      dy={10}
+                    />
+                    <YAxis 
+                      hide={true} 
+                    />
+                    <Tooltip 
+                      cursor={{ fill: 'rgba(0,0,0,0.02)' }}
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="bg-[#1A1F36] text-white p-3 rounded-xl shadow-2xl border-none">
+                              <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">{payload[0].payload.name}</p>
+                              <p className="text-sm font-black">{payload[0].value?.toLocaleString()} USD</p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Bar dataKey="amount" radius={[6, 6, 0, 0]} barSize={20}>
+                      {monthlyData.map((entry, index) => (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={entry.amount > 0 ? 'hsl(var(--primary))' : '#E1E5EB'} 
+                          fillOpacity={entry.amount > 0 ? 1 : 0.5}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             </Card>
-            <Card className="rounded-3xl border-none shadow-md bg-card p-6">
-              <p className="text-sm font-medium text-muted-foreground mb-1">Total Encaissé (CDF)</p>
-              <div className="text-3xl font-black text-primary">
-                {stats.cdfTotal.toLocaleString()} <span className="text-sm">CDF</span>
-              </div>
-            </Card>
-            <Card className="rounded-3xl border-none shadow-md bg-card p-6">
-              <p className="text-sm font-medium text-muted-foreground mb-1">Paiements ce mois</p>
-              <div className="text-3xl font-black text-primary">
-                {payments.filter(p => new Date(p.date).getMonth() === new Date().getMonth()).length}
-              </div>
-            </Card>
+
+            <div className="flex flex-col gap-4">
+              <Card className="rounded-3xl border-none shadow-md bg-card p-6 flex-1 flex flex-col justify-center">
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Total USD</p>
+                <div className="text-2xl font-black text-primary">
+                  {stats.usdTotal.toLocaleString()} <span className="text-xs">USD</span>
+                </div>
+              </Card>
+              <Card className="rounded-3xl border-none shadow-md bg-card p-6 flex-1 flex flex-col justify-center">
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Total CDF</p>
+                <div className="text-2xl font-black text-primary">
+                  {stats.cdfTotal.toLocaleString()} <span className="text-xs">CDF</span>
+                </div>
+              </Card>
+              <Card className="rounded-3xl border-none shadow-md bg-card p-6 flex-1 flex flex-col justify-center">
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Activité de ce mois</p>
+                <div className="text-2xl font-black text-primary">
+                  {payments.filter(p => new Date(p.date).getMonth() === new Date().getMonth()).length}
+                </div>
+              </Card>
+            </div>
           </div>
 
           <Card className="rounded-[2rem] border-none shadow-xl shadow-foreground/5 bg-card overflow-hidden">

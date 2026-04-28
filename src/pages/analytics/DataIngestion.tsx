@@ -5,14 +5,61 @@ import { Button } from '../../components/ui/button';
 import { Database, Download, ArrowRight, RefreshCw, Layers, History, Activity, ShieldAlert, Globe } from 'lucide-react';
 import { Progress } from '../../components/ui/progress';
 
+import { useLiveQuery } from 'dexie-react-hooks';
+import { dbLocal } from '../../lib/db';
+
 export default function DataIngestion() {
+  const data = useLiveQuery(async () => {
+    return {
+      payments: await dbLocal.payments.toArray(),
+      tenants: await dbLocal.tenants.toArray(),
+      invoices: await dbLocal.invoices.toArray(),
+      contracts: await dbLocal.contracts.toArray(),
+    };
+  }) || { payments: [], tenants: [], invoices: [], contracts: [] };
+
+  const { payments, tenants, invoices, contracts } = data;
+
   const pipelines = [
-    { name: 'Flux Transactions Temps Réel', status: 'Actif', load: 85, icon: Activity, color: 'text-emerald-500' },
-    { name: 'Historique Crédit Bureau', status: 'Synchronisation', load: 42, icon: History, color: 'text-amber-500' },
-    { name: 'Interactions Omnicanales', status: 'Actif', load: 68, icon: Download, color: 'text-blue-500' },
-    { name: 'Données Réglementaires KYC', status: 'Audit en cours', load: 100, icon: ShieldAlert, color: 'text-rose-500' },
-    { name: 'External Market Feeds', status: 'Actif', load: 30, icon: Globe, color: 'text-violet-500' },
+    { 
+      name: 'Flux Transactions Temps Réel', 
+      status: payments.length > 0 ? 'Actif' : 'En attente', 
+      load: Math.min(100, Math.floor((payments.length / 50) * 100)), 
+      icon: Activity, 
+      color: 'text-emerald-500' 
+    },
+    { 
+      name: 'Historique Crédit Bureau', 
+      status: 'Synchronisation', 
+      load: Math.min(100, Math.floor((contracts.length / 20) * 100)), 
+      icon: History, 
+      color: 'text-amber-500' 
+    },
+    { 
+      name: 'Interactions Omnicanales', 
+      status: 'Actif', 
+      load: Math.min(100, Math.floor((tenants.length / 30) * 100)), 
+      icon: Download, 
+      color: 'text-blue-500' 
+    },
+    { 
+      name: 'Données Réglementaires KYC', 
+      status: tenants.length > 0 ? 'Audit en cours' : 'Zéro donnée', 
+      load: tenants.length > 0 ? Math.min(100, Math.floor((tenants.filter(t => t.idNumber).length / tenants.length) * 100)) : 0, 
+      icon: ShieldAlert, 
+      color: 'text-rose-500' 
+    },
+    { 
+      name: 'External Market Feeds', 
+      status: 'Vérification', 
+      load: 15, 
+      icon: Globe, 
+      color: 'text-violet-500' 
+    },
   ];
+
+  const totalBytes = payments.length * 500 + invoices.length * 800 + tenants.length * 1200;
+  const volumeDaily = (totalBytes / 1024).toFixed(2);
 
   return (
     <div className="grid gap-6">
@@ -79,8 +126,8 @@ export default function DataIngestion() {
             <h4 className="font-black uppercase text-[10px] tracking-[0.2em] text-muted-foreground mb-4">Statistiques Consolidées</h4>
             <div className="space-y-6">
               <div className="flex justify-between items-center">
-                <span className="text-sm font-black uppercase tracking-tighter">Volume Ingestéré</span>
-                <span className="text-lg font-black text-primary">1.4 TB / jour</span>
+                <span className="text-sm font-black uppercase tracking-tighter">Volume Ingestéré (Calculé)</span>
+                <span className="text-lg font-black text-primary">{volumeDaily} KB</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm font-black uppercase tracking-tighter">Latence Moyenne</span>

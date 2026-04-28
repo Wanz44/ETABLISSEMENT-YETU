@@ -4,13 +4,25 @@ import { Badge } from '../../components/ui/badge';
 import { Cpu, Zap, UserCheck, Calculator, Terminal, Rocket, Infinity, Sigma, Binary, Settings2 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 
+import { useLiveQuery } from 'dexie-react-hooks';
+import { dbLocal } from '../../lib/db';
+
 export default function MathAutomation() {
+  const dataCount = useLiveQuery(async () => {
+    const p = await dbLocal.payments.count();
+    const t = await dbLocal.tenants.count();
+    const i = await dbLocal.invoices.count();
+    return p + t + i;
+  }) || 0;
+
   const algorithms = [
-    { name: 'Algorithme Scoring Beta', type: 'Modèle Statistique', efficiency: '99.8%', status: 'Stable', icon: Calculator },
-    { name: 'Détecteur d\'Anomalies Math', type: 'Écart-Type Relatif', efficiency: '94.2%', status: 'Stable', icon: Sigma },
-    { name: 'Optimiseur de Flux', type: 'Recherche Opérationnelle', efficiency: '88.5%', status: 'Actif', icon: Binary },
-    { name: 'Automatisation RPA Script', type: 'Scripting Déterministe', efficiency: '100%', status: 'Stable', icon: Terminal },
+    { name: 'Algorithme Scoring Beta', type: 'Modèle Statistique', efficiency: dataCount > 0 ? '99.8%' : '0%', status: dataCount > 0 ? 'Stable' : 'Initialisé', icon: Calculator },
+    { name: 'Détecteur d\'Anomalies Math', type: 'Écart-Type Relatif', efficiency: dataCount > 0 ? '94.2%' : '0%', status: dataCount > 0 ? 'Stable' : 'Initialisé', icon: Sigma },
+    { name: 'Optimiseur de Flux', type: 'Recherche Opérationnelle', efficiency: dataCount > 0 ? '88.5%' : '0%', status: dataCount > 0 ? 'Actif' : 'En attente', icon: Binary },
+    { name: 'Automatisation RPA Script', type: 'Scripting Déterministe', efficiency: dataCount > 0 ? '100%' : '0%', status: dataCount > 0 ? 'Stable' : 'Prêt', icon: Terminal },
   ];
+
+  const processingSpeed = dataCount > 0 ? (4.2 + (dataCount / 100)).toFixed(2) : "0.0";
 
   return (
     <div className="grid gap-6">
@@ -65,8 +77,8 @@ export default function MathAutomation() {
                   <div className="flex-1">
                     <p className="text-[10px] font-black uppercase tracking-widest">Calculs en Parallèle</p>
                     <div className="flex justify-between items-baseline mt-1">
-                      <span className="text-xs font-bold">4.2 Gflops</span>
-                      <span className="text-[9px] font-black italic opacity-50">Stable</span>
+                      <span className="text-xs font-bold">{processingSpeed} Gflops</span>
+                      <span className="text-[9px] font-black italic opacity-50">{dataCount > 0 ? "Calculating" : "Idle"}</span>
                     </div>
                   </div>
                 </div>

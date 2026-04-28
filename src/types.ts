@@ -48,6 +48,7 @@ export interface Tenant {
   legalStatus: 'particular' | 'company';
   monthlyRent?: number;
   additionalInfo?: string;
+  notes?: string;
   createdAt?: string;
 }
 

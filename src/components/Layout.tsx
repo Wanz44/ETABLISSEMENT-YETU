@@ -228,15 +228,38 @@ function SmartSearch() {
     if (query.length < 2) return null;
     const q = query.toLowerCase();
     
-    const centers = await dbLocal.centers.filter(c => c.name.toLowerCase().includes(q)).limit(3).toArray();
-    const tenants = await dbLocal.tenants.filter(t => t.name.toLowerCase().includes(q) || (t.company && t.company.toLowerCase().includes(q))).limit(3).toArray();
-    const contracts = await dbLocal.contracts.toArray(); // Get all to filter by tenant name later if needed, but let's stick to unit names or IDs
-    const filteredContracts = contracts.filter(c => c.id.toLowerCase().includes(q)).slice(0, 3);
+    const centers = await dbLocal.centers.filter(c => 
+      c.name.toLowerCase().includes(q) || 
+      c.description.toLowerCase().includes(q) || 
+      c.location.toLowerCase().includes(q)
+    ).limit(3).toArray();
 
-    return { centers, tenants, contracts: filteredContracts };
+    const buildings = await dbLocal.buildings.filter(b => 
+      b.name.toLowerCase().includes(q) || 
+      b.description.toLowerCase().includes(q)
+    ).limit(3).toArray();
+
+    const tenants = await dbLocal.tenants.filter(t => 
+      t.name.toLowerCase().includes(q) || 
+      (t.company && t.company.toLowerCase().includes(q)) ||
+      (t.activityType && t.activityType.toLowerCase().includes(q))
+    ).limit(3).toArray();
+    
+    const contracts = await dbLocal.contracts.toArray();
+    const filteredContracts = contracts.filter(c => 
+      c.id.toLowerCase().includes(q) ||
+      (c.notes && c.notes.toLowerCase().includes(q))
+    ).slice(0, 3);
+
+    return { centers, buildings, tenants, contracts: filteredContracts };
   }, [query]);
 
-  const hasResults = results && (results.centers.length > 0 || results.tenants.length > 0 || results.contracts.length > 0);
+  const hasResults = results && (
+    results.centers.length > 0 || 
+    results.buildings.length > 0 ||
+    results.tenants.length > 0 || 
+    results.contracts.length > 0
+  );
 
   return (
     <div className="relative w-full">
@@ -302,6 +325,30 @@ function SmartSearch() {
                             <div>
                               <p className="text-sm font-black uppercase tracking-tight">{center.name}</p>
                               <p className="text-[10px] text-muted-foreground font-bold">{center.location}</p>
+                            </div>
+                          </div>
+                          <ArrowRight className="w-4 h-4 text-primary opacity-0 group-hover/item:opacity-100 transition-all -translate-x-2 group-hover/item:translate-x-0" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {results.buildings.length > 0 && (
+                    <div>
+                      <h4 className="px-4 py-2 text-[10px] font-black uppercase tracking-widest text-[#697386] opacity-60">Immeubles / Pavillons</h4>
+                      {results.buildings.map(building => (
+                        <div 
+                          key={building.id}
+                          onClick={() => { navigate('/centers'); setQuery(''); setIsOpen(false); }}
+                          className="flex items-center justify-between p-3 rounded-xl hover:bg-primary/5 cursor-pointer group/item transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                              <Building2 className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-black uppercase tracking-tight">{building.name}</p>
+                              <p className="text-[10px] text-muted-foreground font-bold line-clamp-1">{building.description}</p>
                             </div>
                           </div>
                           <ArrowRight className="w-4 h-4 text-primary opacity-0 group-hover/item:opacity-100 transition-all -translate-x-2 group-hover/item:translate-x-0" />
